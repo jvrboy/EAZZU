@@ -1,0 +1,19 @@
+{
+  "c0b85b0806cf": {
+    "id": "c0b85b0806cf",
+    "content": "\ud83c\udfaf Goal: How do I download and tag audio from YouTube?\n\n  \ud83d\udc41\ufe0f [perception] I detect a download intent in: 'How do I download and tag audio from YouTube?'\n  \ud83d\udd0d [analysis] Analyzing: I detect a download intent in: 'How do I download and tag audio from YouTube?'\nRequired tools: universal_downloader, audio_tagger\n  \ud83e\uddee [reasoning] Need analysis before reasoning\n  \ud83d\udccb [planning] Need reasoning before planning\n  \ud83d\udcad [reflection] Reflecting on my reasoning:\n- Reasoning appears complete with analysis and plan\n- I should consider edge cases and alternative approaches\n\n  \u26a1 [decision] Decision: Use universal_downloader tool to download the content\n\n\ud83d\udccc Conclusion: Decision: Use universal_downloader tool to download the content (confidence: 0.95)",
+    "memory_type": "episodic",
+    "importance": 0.6,
+    "created_at": "2026-07-10T17:03:32.316918",
+    "accessed_at": "2026-07-10T17:03:32.316919",
+    "access_count": 0,
+    "tags": [
+      "reasoning",
+      "brain"
+    ],
+    "source": "brain",
+    "emotions": {},
+    "associations": [],
+    "embedding": null
+  }
+}

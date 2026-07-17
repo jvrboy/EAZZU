@@ -1,0 +1,39 @@
+# ─── Core Dependencies ──────────────────────────────────────────────
+colorama>=0.4.6          # Cross-platform colored terminal output
+pyyaml>=6.0              # Configuration file parsing
+
+# ─── Media Download ─────────────────────────────────────────────────
+yt-dlp>=2024.1.1         # Universal media downloader (YouTube, 1000+ sites)
+
+# ─── Audio Processing ───────────────────────────────────────────────
+mutagen>=1.47.0          # Audio metadata reading/writing
+pychromaprint>=0.7       # Audio fingerprinting (optional)
+acoustid>=1.3.0          # AcoustID API for song identification
+musicbrainzngs>=0.7.1    # MusicBrainz metadata
+pylast>=5.2.0            # Last.fm API
+lyricsgenius>=3.0.1      # Genius lyrics API
+
+# ─── Vision / Image ─────────────────────────────────────────────────
+# Option 1: Local vision (no API key needed)
+opencv-python>=4.8.0     # Computer vision
+Pillow>=10.0.0           # Image processing
+pytesseract>=0.3.10      # OCR (also needs tesseract-ocr binary)
+imagehash>=4.3.1         # Perceptual image hashing
+
+# Option 2: AI vision (requires API key)
+# openai>=1.0.0           # OpenAI API for GPT-4 Vision
+
+# ─── Media Conversion ───────────────────────────────────────────────
+# ffmpeg binary required (not pip installable)
+# Install via: apt install ffmpeg / brew install ffmpeg / choco install ffmpeg
+
+# ─── Web Scraping ───────────────────────────────────────────────────
+beautifulsoup4>=4.12.0   # HTML parsing
+requests>=2.31.0         # HTTP requests
+
+# ─── System Utilities ───────────────────────────────────────────────
+psutil>=5.9.0            # System monitoring (optional)
+
+# ─── Data Science (for advanced features) ──────────────────────────
+# numpy>=1.24.0           # Numerical computing
+# scikit-learn>=1.3.0     # Machine learning utilities

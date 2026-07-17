@@ -1,0 +1,44 @@
+{
+    "name": "Neural.AI — Offline LLM Chat",
+    "short_name": "Neural.AI",
+    "description": "Production-ready offline AI chatbot with local model support",
+    "start_url": "./index.html",
+    "scope": "./",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#050510",
+    "theme_color": "#0a0a1a",
+    "categories": ["productivity", "utilities", "developer"],
+    "icons": [
+        {
+            "src": "assets/icon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "assets/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "assets/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "New Chat",
+            "url": "./index.html?action=new-chat",
+            "icons": [{ "src": "assets/icon.svg", "sizes": "any" }]
+        },
+        {
+            "name": "Sandbox",
+            "url": "./index.html?view=sandbox",
+            "icons": [{ "src": "assets/icon.svg", "sizes": "any" }]
+        }
+    ]
+}

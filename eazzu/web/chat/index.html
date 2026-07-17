@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#0a0a1a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Neural.AI — Offline LLM Chat</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/sidebar.css">
+    <link rel="stylesheet" href="css/chat.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+    <!-- Feather Icons for professional UI -->
+    <script src="https://unpkg.com/feather-icons"></script>
+</head>
+<body>
+    <!-- Animated Background -->
+    <div class="bg-orbs">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+
+    <!-- App Container -->
+    <div class="app">
+        <!-- Sidebar Overlay -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <!-- SIDEBAR NAVIGATION -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-container">
+                    <div class="logo-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"/>
+                            <path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m7.08 7.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m7.08-7.08l4.24-4.24"/>
+                        </svg>
+                    </div>
+                    <div class="logo-text">
+                        <h1>Neural.AI</h1>
+                        <span>Offline • Private</span>
+                    </div>
+                </div>
+                <button class="btn-close-sidebar" id="closeSidebar">
+                    <i data-feather="x"></i>
+                </button>
+            </div>
+
+            <button class="btn-new-chat" id="newChatBtn">
+                <i data-feather="plus"></i>
+                <span>New Chat</span>
+            </button>
+
+            <div class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-title">Navigation</div>
+                    <a class="nav-item active" data-view="chat">
+                        <i data-feather="message-circle"></i>
+                        <span>Chat</span>
+                    </a>
+                    <a class="nav-item" data-view="models">
+                        <i data-feather="cpu"></i>
+                        <span>My Models</span>
+                        <span class="badge" id="modelCount">0</span>
+                    </a>
+                    <a class="nav-item" data-view="sandbox">
+                        <i data-feather="code"></i>
+                        <span>Code Sandbox</span>
+                    </a>
+                    <a class="nav-item" data-view="tools">
+                        <i data-feather="tool"></i>
+                        <span>AI Tools</span>
+                    </a>
+                    <a class="nav-item" data-view="files">
+                        <i data-feather="folder"></i>
+                        <span>Generated Files</span>
+                    </a>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-title">History</div>
+                    <div class="chat-history" id="chatHistory">
+                        <!-- Chat history items -->
+                    </div>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-title">System</div>
+                    <a class="nav-item" data-view="settings">
+                        <i data-feather="settings"></i>
+                        <span>Settings</span>
+                    </a>
+                    <a class="nav-item" data-view="about">
+                        <i data-feather="info"></i>
+                        <span>About</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="active-model" id="activeModelInfo">
+                    <div class="model-status">
+                        <span class="status-dot"></span>
+                        <span id="activeModelName">No model loaded</span>
+                    </div>
+                    <div class="model-stats">
+                        <span id="modelStats">Import a model to start</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+            <!-- Top Bar -->
+            <header class="top-bar">
+                <button class="btn-icon menu-btn" id="menuBtn">
+                    <i data-feather="menu"></i>
+                </button>
+                <div class="top-title" id="topTitle">Chat</div>
+                <div class="top-actions">
+                    <button class="btn-icon" id="clearChatBtn" title="Clear chat">
+                        <i data-feather="trash-2"></i>
+                    </button>
+                    <button class="btn-icon" id="exportChatBtn" title="Export">
+                        <i data-feather="download"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- View Container -->
+            <div class="view-container">
+                <!-- CHAT VIEW -->
+                <section class="view active" id="view-chat">
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="welcome-screen" id="welcomeScreen">
+                            <div class="welcome-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/>
+                                </svg>
+                            </div>
+                            <h2>Neural.AI</h2>
+                            <p>Fully offline AI. Your data never leaves the device.</p>
+                            <div class="suggestion-grid">
+                                <div class="suggestion-card" data-prompt="Write a Python function to sort a list using quicksort">
+                                    <i data-feather="code"></i>
+                                    <span>Write Python code</span>
+                                </div>
+                                <div class="suggestion-card" data-prompt="Create an HTML landing page with glassmorphism design">
+                                    <i data-feather="layout"></i>
+                                    <span>Create HTML page</span>
+                                </div>
+                                <div class="suggestion-card" data-prompt="Generate an image of a futuristic city at sunset">
+                                    <i data-feather="image"></i>
+                                    <span>Generate image</span>
+                                </div>
+                                <div class="suggestion-card" data-prompt="Compose a simple MIDI melody in C major">
+                                    <i data-feather="music"></i>
+                                    <span>Create music</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chat Input -->
+                    <div class="chat-input-container">
+                        <div class="attachments-preview" id="attachmentsPreview"></div>
+                        <div class="chat-input-wrapper">
+                            <button class="btn-icon input-action" id="attachBtn" title="Attach">
+                                <i data-feather="paperclip"></i>
+                            </button>
+                            <textarea 
+                                class="chat-input" 
+                                id="chatInput" 
+                                placeholder="Ask anything... (Shift+Enter for new line)"
+                                rows="1"></textarea>
+                            <button class="btn-icon input-action" id="voiceBtn" title="Voice">
+                                <i data-feather="mic"></i>
+                            </button>
+                            <button class="btn-send" id="sendBtn">
+                                <i data-feather="send"></i>
+                            </button>
+                        </div>
+                        <div class="input-hints">
+                            <span class="hint-badge" data-cmd="/image">🎨 /image</span>
+                            <span class="hint-badge" data-cmd="/code">💻 /code</span>
+                            <span class="hint-badge" data-cmd="/html">🌐 /html</span>
+                            <span class="hint-badge" data-cmd="/music">🎵 /music</span>
+                            <span class="hint-badge" data-cmd="/run">▶️ /run</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- MODELS VIEW -->
+                <section class="view" id="view-models">
+                    <div class="view-content">
+                        <div class="section-header">
+                            <div>
+                                <h2>Local Models</h2>
+                                <p class="section-subtitle">Import GGUF, Safetensors, ONNX, or any LLM file</p>
+                            </div>
+                        </div>
+
+                        <div class="import-zone" id="importZone">
+                            <input type="file" id="modelFileInput" accept=".gguf,.safetensors,.bin,.onnx,.pt,.pth,.ggml,.q4_0,.q4_1,.q5_0,.q5_1,.q8_0" style="display:none" multiple>
+                            <div class="import-content">
+                                <div class="import-icon">
+                                    <i data-feather="upload-cloud"></i>
+                                </div>
+                                <h3>Import Model File</h3>
+                                <p>Drag & drop or tap to browse</p>
+                                <div class="supported-formats">
+                                    <span class="format-chip">.gguf</span>
+                                    <span class="format-chip">.safetensors</span>
+                                    <span class="format-chip">.bin</span>
+                                    <span class="format-chip">.onnx</span>
+                                    <span class="format-chip">.pt / .pth</span>
+                                    <span class="format-chip">.ggml</span>
+                                </div>
+                                <button class="btn-primary" id="browseModelBtn">
+                                    <i data-feather="folder"></i>
+                                    Browse Files
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="models-list" id="modelsList">
+                            <!-- Model items will be inserted here -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SANDBOX VIEW -->
+                <section class="view" id="view-sandbox">
+                    <div class="view-content sandbox-view">
+                        <div class="section-header">
+                            <div>
+                                <h2>Code Sandbox</h2>
+                                <p class="section-subtitle">Execute JavaScript, HTML, and Python (Pyodide) offline</p>
+                            </div>
+                        </div>
+
+                        <div class="sandbox-container">
+                            <div class="sandbox-tabs">
+                                <button class="tab-btn active" data-lang="javascript">JavaScript</button>
+                                <button class="tab-btn" data-lang="html">HTML</button>
+                                <button class="tab-btn" data-lang="python">Python</button>
+                            </div>
+
+                            <div class="code-editor-wrapper">
+                                <textarea class="code-editor" id="codeEditor" spellcheck="false">// Try running JavaScript here
+const greet = (name) => `Hello, ${name}!`;
+console.log(greet('Neural.AI'));
+
+// Compute fibonacci
+function fib(n) {
+    return n < 2 ? n : fib(n-1) + fib(n-2);
+}
+console.log('Fibonacci(10):', fib(10));</textarea>
+                            </div>
+
+                            <div class="sandbox-actions">
+                                <button class="btn-primary" id="runCodeBtn">
+                                    <i data-feather="play"></i>
+                                    Run Code
+                                </button>
+                                <button class="btn-secondary" id="clearOutputBtn">
+                                    <i data-feather="trash"></i>
+                                    Clear
+                                </button>
+                                <button class="btn-secondary" id="saveCodeBtn">
+                                    <i data-feather="save"></i>
+                                    Save
+                                </button>
+                            </div>
+
+                            <div class="output-container">
+                                <div class="output-header">
+                                    <span>Output</span>
+                                    <span class="output-status" id="outputStatus">Ready</span>
+                                </div>
+                                <pre class="output-content" id="codeOutput">// Output will appear here...</pre>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- AI TOOLS VIEW -->
+                <section class="view" id="view-tools">
+                    <div class="view-content">
+                        <div class="section-header">
+                            <div>
+                                <h2>AI Tools</h2>
+                                <p class="section-subtitle">Offline neural pipelines & brains</p>
+                            </div>
+                        </div>
+
+                        <div class="tools-grid">
+                            <div class="tool-card" data-tool="image-gen">
+                                <div class="tool-icon" style="background: linear-gradient(135deg,#f093fb,#f5576c)">
+                                    <i data-feather="image"></i>
+                                </div>
+                                <h3>Image Generator</h3>
+                                <p>Procedural image synthesis via neural pipeline</p>
+                            </div>
+                            <div class="tool-card" data-tool="html-gen">
+                                <div class="tool-icon" style="background: linear-gradient(135deg,#4facfe,#00f2fe)">
+                                    <i data-feather="layout"></i>
+                                </div>
+                                <h3>HTML Builder</h3>
+                                <p>Generate & preview HTML pages instantly</p>
+                            </div>
+                            <div class="tool-card" data-tool="code-gen">
+                                <div class="tool-icon" style="background: linear-gradient(135deg,#43e97b,#38f9d7)">
+                                    <i data-feather="terminal"></i>
+                                </div>
+                                <h3>Code Generator</h3>
+                                <p>Python, JS, and more from prompts</p>
+                            </div>
+                            <div class="tool-card" data-tool="midi-gen">
+                                <div class="tool-icon" style="background: linear-gradient(135deg,#fa709a,#fee140)">
+                                    <i data-feather="music"></i>
+                                </div>
+                                <h3>MIDI Composer</h3>
+                                <p>Generate melodies and audio offline</p>
+                            </div>
+                            <div class="tool-card" data-tool="text-tools">
+                                <div class="tool-icon" style="background: linear-gradient(135deg,#a8edea,#fed6e3)">
+                                    <i data-feather="type"></i>
+                                </div>
+                                <h3>Text Neural Net</h3>
+                                <p>Built-in text generation network</p>
+                            </div>
+                            <div class="tool-card" data-tool="tokenizer">
+                                <div class="tool-icon" style="background: linear-gradient(135deg,#667eea,#764ba2)">
+                                    <i data-feather="hash"></i>
+                                </div>
+                                <h3>Tokenizer</h3>
+                                <p>BPE / WordPiece analyzer</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- FILES VIEW -->
+                <section class="view" id="view-files">
+                    <div class="view-content">
+                        <div class="section-header">
+                            <div>
+                                <h2>Generated Files</h2>
+                                <p class="section-subtitle">All files created in this app</p>
+                            </div>
+                        </div>
+                        <div class="files-grid" id="filesGrid">
+                            <!-- Files inserted here -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SETTINGS VIEW -->
+                <section class="view" id="view-settings">
+                    <div class="view-content">
+                        <div class="section-header">
+                            <div>
+                                <h2>Settings</h2>
+                                <p class="section-subtitle">Configure your experience</p>
+                            </div>
+                        </div>
+
+                        <div class="settings-section">
+                            <h3>Model Parameters</h3>
+                            <div class="setting-item">
+                                <label>Temperature <span class="value-display" id="tempValue">0.7</span></label>
+                                <input type="range" min="0" max="2" step="0.1" value="0.7" id="temperatureSlider">
+                            </div>
+                            <div class="setting-item">
+                                <label>Max Tokens <span class="value-display" id="tokensValue">512</span></label>
+                                <input type="range" min="64" max="4096" step="64" value="512" id="tokensSlider">
+                            </div>
+                            <div class="setting-item">
+                                <label>Top-P <span class="value-display" id="topPValue">0.9</span></label>
+                                <input type="range" min="0" max="1" step="0.05" value="0.9" id="topPSlider">
+                            </div>
+                        </div>
+
+                        <div class="settings-section">
+                            <h3>Appearance</h3>
+                            <div class="setting-item toggle-item">
+                                <label>Dark Mode</label>
+                                <label class="switch">
+                                    <input type="checkbox" id="darkModeToggle" checked>
+                                    <span class="slider-round"></span>
+                                </label>
+                            </div>
+                            <div class="setting-item toggle-item">
+                                <label>Glass Effects</label>
+                                <label class="switch">
+                                    <input type="checkbox" id="glassToggle" checked>
+                                    <span class="slider-round"></span>
+                                </label>
+                            </div>
+                            <div class="setting-item toggle-item">
+                                <label>Animations</label>
+                                <label class="switch">
+                                    <input type="checkbox" id="animToggle" checked>
+                                    <span class="slider-round"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="settings-section">
+                            <h3>Storage</h3>
+                            <div class="storage-info" id="storageInfo">
+                                <div class="storage-bar">
+                                    <div class="storage-fill" id="storageFill"></div>
+                                </div>
+                                <div class="storage-text" id="storageText">Calculating...</div>
+                            </div>
+                            <button class="btn-danger" id="clearDataBtn">
+                                <i data-feather="alert-triangle"></i>
+                                Clear All Data
+                            </button>
+                        </div>
+
+                        <div class="settings-section">
+                            <h3>Permissions</h3>
+                            <div class="perm-item" id="permStorage">
+                                <i data-feather="hard-drive"></i>
+                                <div>
+                                    <div class="perm-title">Storage Access</div>
+                                    <div class="perm-status">Granted</div>
+                                </div>
+                            </div>
+                            <div class="perm-item" id="permMic">
+                                <i data-feather="mic"></i>
+                                <div>
+                                    <div class="perm-title">Microphone</div>
+                                    <div class="perm-status">Tap to request</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ABOUT VIEW -->
+                <section class="view" id="view-about">
+                    <div class="view-content">
+                        <div class="about-hero">
+                            <div class="logo-big">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <circle cx="12" cy="12" r="3"/>
+                                    <path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m7.08 7.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m7.08-7.08l4.24-4.24"/>
+                                </svg>
+                            </div>
+                            <h1>Neural.AI</h1>
+                            <p class="version">Version 1.0.0 • Production</p>
+                            <p class="tagline">Fully offline AI chat with local model support.<br>Your data never leaves your device.</p>
+                        </div>
+
+                        <div class="feature-list">
+                            <div class="feature-item"><i data-feather="lock"></i><span>100% Offline & Private</span></div>
+                            <div class="feature-item"><i data-feather="cpu"></i><span>Local Model Support (GGUF/Safetensors)</span></div>
+                            <div class="feature-item"><i data-feather="code"></i><span>Built-in Code Sandbox</span></div>
+                            <div class="feature-item"><i data-feather="image"></i><span>Image/HTML/Code/MIDI Generation</span></div>
+                            <div class="feature-item"><i data-feather="database"></i><span>Persistent Local Storage</span></div>
+                            <div class="feature-item"><i data-feather="zap"></i><span>Neural Pipeline Brains</span></div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Container -->
+    <div class="modal-container" id="modalContainer"></div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Scripts -->
+    <script src="js/storage.js"></script>
+    <script src="js/neural.js"></script>
+    <script src="js/pipelines.js"></script>
+    <script src="js/models.js"></script>
+    <script src="js/sandbox.js"></script>
+    <script src="js/chat.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        // Register service worker for offline support
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW registration failed:', err));
+            });
+        }
+    </script>
+</body>
+</html>

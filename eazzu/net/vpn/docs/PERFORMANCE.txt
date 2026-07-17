@@ -1,0 +1,27 @@
+VPN backends not found — running in SIMULATION mode.
+========================================================================
+UltraVPN v1.0.0 — Performance Benchmark
+========================================================================
+
+[1] Cryptography
+  WireGuard keypair generation             avg=  0.093 ms  p95=  0.062 ms  min= 0.037 ms
+  Encrypt 1 KB data                        avg= 34.091 ms  p95= 46.430 ms  min=32.768 ms
+  Decrypt 1 KB data                        avg= 32.862 ms  p95= 33.245 ms  min=32.393 ms
+
+[2] Config persistence
+  Add config + save                        avg=  1.432 ms  p95=  2.664 ms  min= 0.149 ms
+  List configs                             avg=  0.001 ms  p95=  0.001 ms  min= 0.001 ms
+
+[3] VPN engine (simulation mode)
+  connect + disconnect cycle               avg= 2902.2 ms  min= 2900.7 ms  max= 2926.3 ms
+
+[4] Server manager
+  Pinged 10 servers in 76 ms  (0 reachable)
+
+[5] Preset library
+  Presets available:                       9
+  Categories covered:                      privacy, streaming, gaming, P2P, stealth, mobile
+
+========================================================================
+Benchmark complete.
+========================================================================

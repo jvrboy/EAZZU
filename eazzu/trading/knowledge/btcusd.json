@@ -1,0 +1,75 @@
+{
+  "instrument": "BTCUSD",
+  "name": "Bitcoin vs US Dollar",
+  "deriv_symbol": "cryBTCUSD",
+  "market_type": "crypto",
+  "trading_hours": "24/7 - no sessions close, but volume follows traditional sessions",
+  "personality": {
+    "summary": "Explosive momentum instrument. Long periods of compression followed by violent expansion. Strongly respects psychological round numbers and prior swing liquidity. Weekend liquidity is thin - moves are exaggerated and often fully retraced Monday. Volume peaks during NY hours despite trading 24/7.",
+    "average_daily_range_pct": "2-5% (compression days < 1.5%, expansion days > 6%)",
+    "spread_behavior": "Moderate always; widens on weekends and during cascade moves",
+    "typical_moves": [
+      "Ranges/compresses during Asian hours, expands London-NY",
+      "NY session (14:30-22:00 SAST) carries the most volume - real breakouts happen here",
+      "Liquidation cascades: breaks of obvious levels overshoot violently then snap back",
+      "Round numbers ($1,000 increments, especially $5k/$10k levels) act as magnets and rejection zones"
+    ]
+  },
+  "best_timeframes": {
+    "bias": "H4 + D1",
+    "execution": "M15",
+    "entry": "M5"
+  },
+  "key_technicals": {
+    "moving_averages": "D1 200 EMA defines macro regime; H4 21 EMA holds trends; M15 EMAs are noise during chop",
+    "liquidity": "The single most liquidity-driven instrument you trade. Equal highs/lows WILL be swept. Always ask: where are the stops?",
+    "round_numbers": "$500 and $1,000 levels react consistently; mark them every session",
+    "volume_profile": "Prior high-volume nodes act as S/R; low-volume gaps get traversed fast",
+    "rsi": "H4 RSI divergence at swing extremes is one of the highest-quality BTC reversal signals; M15 RSI is unreliable in expansions",
+    "atr": "ATR regime check is mandatory: scalping compression chop is the number one BTC account killer"
+  },
+  "scalping_plan": {
+    "sessions": "London 09:00-12:00 SAST and especially NY 14:30-20:00 SAST. Weekends: reduce size 50% or skip.",
+    "setup_1_sweep_and_reclaim": {
+      "steps": [
+        "Mark obvious M15 equal highs/lows or session high/low",
+        "Wait for a wick through the level that closes back on the right side (M5)",
+        "Enter on the reclaim, SL beyond the sweep wick + 0.3x ATR",
+        "TP at the opposite liquidity pool or 1:1.5"
+      ]
+    },
+    "setup_2_compression_break": {
+      "steps": [
+        "Identify M15 range with declining ATR (at least 4 hours of compression)",
+        "Wait for M15 close outside the range WITH momentum candle (body > 70% of range height is ideal)",
+        "Enter on the M5 retest of the broken edge",
+        "SL inside the range midpoint, TP measured move (range height projected)"
+      ]
+    },
+    "risk": "Percentage-based stops (0.4-0.8% of price for scalps), never fixed dollar amounts. Halve size when funding/volatility is extreme."
+  },
+  "day_trading_plan": {
+    "model": "Expansion-day trend riding",
+    "steps": [
+      "H4 bias: above/below H4 21 EMA + last H4 BOS direction",
+      "Enter M15 pullback to breaker/order block after a liquidity sweep in bias direction",
+      "Partial at 1R, trail behind M15 structure, runner targets next $1,000 level or prior swing"
+    ]
+  },
+  "after_hours_00_05_sast": {
+    "conditions": "BTC trades normally but volume is at its daily low (post-NY, pre-Asia pickup). Ranges are tighter, sweeps are common, follow-through is weak.",
+    "verdict": "TRADEABLE but mean-reversion only. Do not trade breakouts in this window - they fail.",
+    "playbook": [
+      "Mark the NY session high/low; fade sweeps of those levels back into range",
+      "Keep targets at 0.3-0.6% moves - expansion rarely happens here",
+      "If a large move DOES start in this window (liquidation cascade), do not fade it - stand aside, thin books exaggerate follow-through",
+      "Sunday 00:00-05:00 SAST is the thinnest liquidity of the entire week - skip"
+    ]
+  },
+  "invalidations_and_traps": [
+    "First breakout of a well-watched level usually sweeps and reverses - trade the reclaim, not the break",
+    "Never add to a losing position during a cascade - cascades overshoot far beyond technical levels",
+    "Weekend breakouts are suspect until confirmed by Monday NY volume",
+    "Macro events (FOMC, CPI at 14:30/20:00 SAST) move BTC like a risk asset - same news rules as forex apply"
+  ]
+}

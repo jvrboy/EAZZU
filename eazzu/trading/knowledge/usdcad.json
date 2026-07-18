@@ -1,0 +1,70 @@
+{
+  "instrument": "USDCAD",
+  "name": "US Dollar vs Canadian Dollar",
+  "deriv_symbol": "frxUSDCAD",
+  "market_type": "forex_major",
+  "trading_hours": "24/5, Sun 23:00 - Fri 23:00 SAST approx",
+  "personality": {
+    "summary": "A North-American-hours pair. Nearly dead in Asia, wakes up in London, delivers its real range during the NY session (14:30-22:00 SAST). Choppy and mean-reverting inside ranges, but produces fast impulsive legs when oil moves or on NY-session momentum. Notorious for false breakouts outside NY hours.",
+    "average_daily_range_pips": "55-85",
+    "spread_behavior": "Tight in NY, moderate in London, wide and jumpy 00:00-05:00 SAST",
+    "typical_moves": [
+      "Asian session: 15-25 pip drift, structureless - avoid",
+      "London: positions build, often a false directional move",
+      "NY open 14:30-16:00 SAST: true direction of the day, largest hourly candles",
+      "Inverse correlation with oil (CAD is a petro-currency): strong oil trend days = strong USDCAD trend days"
+    ]
+  },
+  "best_timeframes": {
+    "bias": "H4 + H1",
+    "execution": "M15",
+    "entry": "M5"
+  },
+  "key_technicals": {
+    "moving_averages": "H1 200 EMA is the macro line in the sand; M15 9/21 EMA cross works well ONLY during NY hours",
+    "pivots": "Classic daily pivots (P, R1, S1) are respected unusually well in the NY session",
+    "round_numbers": "Every 0.0050 level matters; 1.3500-type levels are major battlegrounds",
+    "range_behavior": "Multi-day ranges are common - mark the weekly high/low and fade edges until a confirmed D1 close breaks out",
+    "rsi": "M15 RSI divergence at range extremes during NY is a high-quality reversal signal on this pair"
+  },
+  "scalping_plan": {
+    "sessions": "NY session ONLY: 14:30-20:00 SAST (London 10:00-12:00 acceptable but lower quality)",
+    "setup_1_ny_open_momentum": {
+      "steps": [
+        "Mark 12:00-14:30 SAST pre-NY range",
+        "At/after 14:30, wait for M5 break + retest of the range edge",
+        "Enter on retest rejection candle in breakout direction",
+        "SL beyond retest wick, TP 1:1.5, move to breakeven at 1R"
+      ]
+    },
+    "setup_2_pivot_fade": {
+      "steps": [
+        "On non-trending days (price between daily P and R1/S1)",
+        "Fade first touch of R1/S1 with M5 rejection candle + RSI extreme",
+        "SL 12-15 pips beyond pivot, TP back at daily pivot P"
+      ]
+    },
+    "risk": "Targets 8-15 pips. Skip scalping on Canadian data days at 14:30 SAST (jobs/CPI) and oil inventory Wednesdays 16:30 SAST until the spike settles."
+  },
+  "day_trading_plan": {
+    "model": "NY-session trend day off H1 structure",
+    "steps": [
+      "H1 bias + oil direction check (aligned oil trend increases conviction)",
+      "Entry on M15 pullback to 21 EMA / order block after NY-open impulse",
+      "SL beyond pullback, first target daily R1/S1, runner to PDH/PDL"
+    ]
+  },
+  "after_hours_00_05_sast": {
+    "conditions": "Worst pair on your list for this window. Both USD and CAD home markets are closed. Volume is minimal, spreads widen, price drifts in 10-20 pip noise.",
+    "verdict": "DO NOT TRADE USDCAD from 00:00-05:00 SAST.",
+    "what_to_do_instead": [
+      "Mark the overnight range - its extremes become NY-session liquidity targets",
+      "Prepare pivot levels and note oil's overnight direction for tomorrow's bias"
+    ]
+  },
+  "invalidations_and_traps": [
+    "Asian/London breakouts of the daily range fail far more often than they succeed - wait for NY",
+    "Fast CAD-news spikes (14:30 SAST) fully retrace more often than on other pairs - never chase the spike candle",
+    "If oil and USDCAD are moving the same direction (both up), the USDCAD move is suspect - lower conviction"
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "title": "Deriv Public WebSocket API Reference - Your 8 Instruments",
+  "endpoint": "wss://ws.derivws.com/websockets/v3?app_id=1089",
+  "note": "app_id 1089 is Deriv's public demo app id; register your own at api.deriv.com for production use. Market data (ticks, candles, active_symbols) requires NO authentication.",
+  "symbol_map": {
+    "XAUUSD": "frxXAUUSD",
+    "AUDUSD": "frxAUDUSD",
+    "USDCAD": "frxUSDCAD",
+    "USDJPY": "frxUSDJPY",
+    "BTCUSD": "cryBTCUSD",
+    "Volatility 50 Index": "R_50",
+    "Volatility 75 Index": "R_75",
+    "Volatility 100 Index": "R_100",
+    "1s_variants": {
+      "Volatility 50 (1s)": "1HZ50V",
+      "Volatility 75 (1s)": "1HZ75V",
+      "Volatility 100 (1s)": "1HZ100V"
+    }
+  },
+  "requests": {
+    "list_all_symbols": {
+      "purpose": "Verify current symbol codes and market open status",
+      "payload": { "active_symbols": "brief", "product_type": "basic" }
+    },
+    "live_ticks_stream": {
+      "purpose": "Real-time price stream (~1 tick / 2s on synthetics)",
+      "payload": { "ticks": "R_75", "subscribe": 1 },
+      "unsubscribe": { "forget_all": "ticks" }
+    },
+    "candles_history": {
+      "purpose": "OHLC candles for TA (granularity in seconds: 60=M1, 300=M5, 900=M15, 3600=H1, 14400=H4, 86400=D1)",
+      "payload": {
+        "ticks_history": "R_75",
+        "adjust_start_time": 1,
+        "count": 500,
+        "end": "latest",
+        "granularity": 900,
+        "style": "candles"
+      }
+    },
+    "live_candles_stream": {
+      "purpose": "Streaming OHLC updates for live chart/indicator computation",
+      "payload": {
+        "ticks_history": "frxUSDJPY",
+        "adjust_start_time": 1,
+        "count": 100,
+        "end": "latest",
+        "granularity": 300,
+        "style": "candles",
+        "subscribe": 1
+      }
+    },
+    "server_time": {
+      "purpose": "Sync clock (Deriv uses epoch UTC; SAST = UTC+2)",
+      "payload": { "time": 1 }
+    },
+    "trading_times": {
+      "purpose": "Check open/close times for forex/gold symbols on a given date",
+      "payload": { "trading_times": "2026-07-18" }
+    }
+  },
+  "practical_notes": [
+    "Synthetics (R_50/R_75/R_100) stream 24/7/365 - use them to test your TA code any time",
+    "Forex/gold symbols return 'market is closed' responses on weekends - handle gracefully",
+    "Epoch timestamps are UTC: add 2 hours for SAST when bucketing candles by session",
+    "For indicator work pull at least 300 candles so EMA200 is fully seeded",
+    "Rate limits apply per connection - batch history requests, subscribe once per symbol",
+    "Docs and API playground: https://api.deriv.com"
+  ]
+}

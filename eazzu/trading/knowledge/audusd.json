@@ -1,0 +1,73 @@
+{
+  "instrument": "AUDUSD",
+  "name": "Australian Dollar vs US Dollar",
+  "deriv_symbol": "frxAUDUSD",
+  "market_type": "forex_major",
+  "trading_hours": "24/5, Sun 23:00 - Fri 23:00 SAST approx",
+  "personality": {
+    "summary": "Smooth, technically clean pair. Respects trendlines, channels and S/R better than most majors. Lower volatility than gold - moves are slower and ranges tighter. Risk-sentiment currency: trends when equities/commodities trend. One of the few majors genuinely active in the 00:00-05:00 SAST window because it is Sydney/Tokyo's home pair.",
+    "average_daily_range_pips": "45-70",
+    "spread_behavior": "Consistently tight; only mildly wider at rollover",
+    "typical_moves": [
+      "Sydney open (00:00 SAST) sets the initial direction of the day",
+      "Tokyo (02:00-08:00 SAST) provides its most active non-London hours",
+      "London often retraces or extends the Asian move",
+      "Trends in clean channels on H1; range-bound weeks are common"
+    ]
+  },
+  "best_timeframes": {
+    "bias": "H4",
+    "execution": "M15",
+    "entry": "M5"
+  },
+  "key_technicals": {
+    "moving_averages": "H1 50 EMA is the trend filter; price hugging it = range, clean separation = trend",
+    "channels": "Draws exceptionally clean parallel channels - trade channel top/bottom rejections on M15",
+    "round_numbers": "Reacts at every 50 pips (0.6650, 0.6700); 00 levels are major",
+    "bollinger": "In Asian hours BB(20,2) on M15 contains price well - band-fade scalps work in this pair specifically",
+    "rsi": "Mean-reverts reliably from RSI 70/30 on M15 during Asian and late-NY hours"
+  },
+  "scalping_plan": {
+    "sessions": "Tokyo 02:00-08:00 SAST and London 09:00-12:00 SAST",
+    "setup_1_asian_band_fade": {
+      "steps": [
+        "Confirm no trend: H1 price within 20 pips of 50 EMA, flat slope",
+        "On M15, wait for a close outside BB(20,2) with RSI > 70 or < 30",
+        "Enter on next M5 reversal candle back inside the band",
+        "SL beyond the extreme wick, TP at BB midline (20 SMA). 1:1 typical"
+      ]
+    },
+    "setup_2_channel_touch": {
+      "steps": [
+        "Draw the active H1/M15 channel (minimum 3 touches)",
+        "Enter on M5 rejection candle at channel boundary in channel direction",
+        "SL 10-12 pips beyond boundary, TP mid-channel then far boundary"
+      ]
+    },
+    "risk": "Targets 6-12 pips per scalp. Do not scalp AUDUSD during low-ATR chop between 12:00-14:00 SAST."
+  },
+  "day_trading_plan": {
+    "model": "Trend continuation off H4 structure",
+    "steps": [
+      "H4 bias from structure + 50 EMA",
+      "Wait for M15 pullback into H4 demand/supply or 38.2-61.8% fib",
+      "M15 BOS in bias direction = entry",
+      "SL beyond pullback swing, target PDH/PDL or channel boundary, trail after 1R"
+    ]
+  },
+  "after_hours_00_05_sast": {
+    "conditions": "This IS AUDUSD prime time. Sydney open 00:00 SAST, Tokyo open 02:00 SAST. Liquidity is real, spreads fine. Watch for RBA-related moves (rate decisions ~06:30 SAST on RBA days) and Australian data 03:30 SAST.",
+    "verdict": "TRADEABLE - the best pair on your list for this window alongside USDJPY.",
+    "playbook": [
+      "00:00-02:00: fade extremes of the late-NY range; moves are small, take 5-8 pips",
+      "02:00-05:00: trade Tokyo momentum - if Tokyo breaks the Sydney range with conviction, trade continuation pullbacks on M5",
+      "Avoid 03:30 SAST exactly on Australian data days (jobs, CPI) - technicals suspend for 15 min",
+      "Keep targets modest: the window's full range is often only 20-35 pips"
+    ]
+  },
+  "invalidations_and_traps": [
+    "London frequently reverses the entire Asian move - close Asian-session scalps before 09:00 SAST",
+    "Breakouts without commodity/risk backing tend to fail - prefer pullback entries over breakout entries",
+    "Do not counter-trend against a strong H4 trend just because M15 RSI is extreme"
+  ]
+}

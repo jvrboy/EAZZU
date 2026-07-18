@@ -1,0 +1,72 @@
+{
+  "instrument": "USDJPY",
+  "name": "US Dollar vs Japanese Yen",
+  "deriv_symbol": "frxUSDJPY",
+  "market_type": "forex_major",
+  "trading_hours": "24/5, Sun 23:00 - Fri 23:00 SAST approx",
+  "personality": {
+    "summary": "The trend machine of the majors. When it trends it grinds relentlessly in one direction with shallow pullbacks; when it ranges it is razor-tight. Extremely responsive to round numbers and to the Tokyo session. Active in your 00:00-05:00 SAST window because Tokyo opens at 02:00 SAST.",
+    "average_daily_range_pips": "60-100",
+    "spread_behavior": "Very tight almost always; slight widening at rollover only",
+    "typical_moves": [
+      "Tokyo (02:00-08:00 SAST) sets a defined range or extends the prevailing trend",
+      "London frequently sweeps the Tokyo high/low then reverses",
+      "NY session correlates tightly with US yields - big trend legs happen 14:30-18:00 SAST",
+      "Pullbacks in trends are shallow: 23.6-38.2% fib, rarely 61.8%"
+    ]
+  },
+  "best_timeframes": {
+    "bias": "H4",
+    "execution": "M15",
+    "entry": "M5 / M1"
+  },
+  "key_technicals": {
+    "moving_averages": "In trends price rides the M15 9 EMA; H1 21 EMA pullback is the premium continuation entry",
+    "round_numbers": "The most round-number-obsessed major: every 0.50 reacts, every 1.00 (e.g. 155.00) is a wall. BoJ intervention fears cluster at big figures - expect violent wicks there",
+    "tokyo_range": "Tokyo session high/low is the day's key liquidity - London/NY sweep it almost daily",
+    "ichimoku": "The one pair where Ichimoku genuinely adds value (Japanese flow follows it): H1 Kumo edges act as S/R",
+    "rsi": "Ignore overbought in an uptrend - USDJPY can hold RSI > 70 for entire sessions. Divergence only matters at H4 levels"
+  },
+  "scalping_plan": {
+    "sessions": "Tokyo 02:00-06:00 SAST, London open 09:00-11:00 SAST, NY 14:30-17:00 SAST",
+    "setup_1_tokyo_trend_ride": {
+      "steps": [
+        "At 02:00 SAST check H4/H1 trend; if trending, wait for first M5 pullback to 9/21 EMA after Tokyo open",
+        "Enter on M1 engulfing at the EMA in trend direction",
+        "SL beyond pullback low/high, TP 8-12 pips or next 0.25 round level"
+      ]
+    },
+    "setup_2_tokyo_range_sweep": {
+      "steps": [
+        "If H1 is ranging: mark Tokyo range by 05:00 SAST",
+        "In London/NY, wait for a sweep of the Tokyo high/low that closes back inside on M5",
+        "Enter toward the opposite side of the range, SL beyond sweep wick, TP mid-range then far side"
+      ]
+    },
+    "risk": "Tightest-spread pair = best pure scalping vehicle on your forex list. Still avoid the exact 02:00 SAST open candle and Japanese data at 01:30/01:50 SAST."
+  },
+  "day_trading_plan": {
+    "model": "Trend continuation, add-on style",
+    "steps": [
+      "H4 trend + price above/below H1 21 EMA = bias",
+      "Enter M15 pullbacks to 21 EMA or shallow fib (23.6-38.2%)",
+      "Trail behind M15 swings; trend days run 60-100 pips - let the runner work",
+      "Target the next 0.50/1.00 round number"
+    ]
+  },
+  "after_hours_00_05_sast": {
+    "conditions": "GOOD window. 00:00-02:00 is quiet pre-Tokyo drift; 02:00-05:00 is live Tokyo trading with real volume. Japanese data drops 01:30/01:50 SAST.",
+    "verdict": "TRADEABLE from 02:00 SAST. Best forex instrument on your list for this window.",
+    "playbook": [
+      "00:00-02:00: stand aside or fade tiny extremes; mark late-NY high/low",
+      "02:00: expect an opening drive - let the first 15 min print, then trade the first pullback (setup_1)",
+      "If Tokyo opens inside a tight range, trade the range edges until a M15 close breaks out",
+      "Take 6-12 pip targets; the whole window often ranges 25-40 pips"
+    ]
+  },
+  "invalidations_and_traps": [
+    "Never short 'because it's too high' near big figures in an uptrend - grind continues longer than expected",
+    "Intervention risk: parabolic candles of 100+ pips near multi-decade highs are not technical - stand aside",
+    "London's first move against the Tokyo trend is often a trap - wait for the sweep-and-reclaim"
+  ]
+}

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "eazzu"
-version = "1.0.0"
-description = "Unified agentic developer, trading and AI toolkit — one CLI, BYO API keys, iSH-ready."
+version = "1.1.0"
+description = "Unified agentic developer, trading intelligence and AI toolkit — transparent analysis, signals and adaptive tracking."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }

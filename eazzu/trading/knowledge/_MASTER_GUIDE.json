@@ -1,0 +1,83 @@
+{
+  "title": "Pure Technical Analysis Knowledge Base",
+  "version": "1.0",
+  "created": "2026-07-18",
+  "timezone": "SAST (UTC+2)",
+  "trader_profile": {
+    "style": ["scalping", "day_trading"],
+    "philosophy": "Quick trades, many trades, small targets, strict risk control",
+    "instruments": [
+      "XAUUSD", "AUDUSD", "USDCAD", "USDJPY", "BTCUSD",
+      "Volatility 75 Index", "Volatility 100 Index", "Volatility 50 Index"
+    ]
+  },
+  "files": {
+    "xauusd.json": "Gold vs USD - full TA profile",
+    "audusd.json": "Aussie Dollar - full TA profile",
+    "usdcad.json": "USD vs Canadian Dollar - full TA profile",
+    "usdjpy.json": "USD vs Japanese Yen - full TA profile",
+    "btcusd.json": "Bitcoin - full TA profile",
+    "volatility_75.json": "Deriv V75 synthetic index - full TA profile",
+    "volatility_100.json": "Deriv V100 synthetic index - full TA profile",
+    "volatility_50.json": "Deriv V50 synthetic index - full TA profile",
+    "sessions_sast.json": "Session-by-session playbook in SAST, incl. 00:00-05:00 after-hours",
+    "scalping_daytrading_playbook.json": "Universal scalping + day trading systems, entries, exits, risk",
+    "deriv_api_reference.json": "Deriv public WebSocket API reference for these 8 symbols"
+  },
+  "core_analysis_framework": {
+    "name": "Top-Down 4-Step Analysis",
+    "steps": [
+      {
+        "step": 1,
+        "name": "Higher timeframe bias (H4/H1)",
+        "actions": [
+          "Mark trend direction with 200 EMA slope and structure (HH/HL vs LH/LL)",
+          "Mark key S/R zones, previous day high/low (PDH/PDL), weekly open",
+          "Note if price is trending, ranging, or at a decision point"
+        ]
+      },
+      {
+        "step": 2,
+        "name": "Execution timeframe structure (M15/M5)",
+        "actions": [
+          "Identify the active swing: last break of structure (BOS) or change of character (CHoCH)",
+          "Mark supply/demand zones and untested order blocks",
+          "Locate liquidity pools: equal highs/lows, session highs/lows"
+        ]
+      },
+      {
+        "step": 3,
+        "name": "Entry timeframe trigger (M1/M5)",
+        "actions": [
+          "Wait for price to reach a marked zone - never chase",
+          "Confirm with candlestick trigger (engulfing, pin bar, inside-bar break) plus momentum (RSI/Stoch)",
+          "Enter only in the direction of the step-1 bias unless trading a confirmed range"
+        ]
+      },
+      {
+        "step": 4,
+        "name": "Trade management",
+        "actions": [
+          "Stop loss beyond the zone / last swing, never at obvious equal highs-lows",
+          "Scalps: fixed 1:1 to 1:1.5 RR, take profit fast",
+          "Day trades: partial at 1R, trail rest behind M5/M15 swings",
+          "Max 1-2% account risk per trade, hard daily loss cap of 3-5%"
+        ]
+      }
+    ]
+  },
+  "universal_indicator_stack": {
+    "trend": ["EMA 9", "EMA 21", "EMA 50", "EMA 200"],
+    "momentum": ["RSI 14 (scalp: RSI 7)", "Stochastic 5,3,3 for scalps"],
+    "volatility": ["ATR 14 for stop sizing", "Bollinger Bands 20,2 for range extremes"],
+    "levels": ["Pivot points (classic daily)", "Previous day high/low", "Session opens"],
+    "rule": "Indicators confirm, structure decides. Never enter on an indicator signal alone."
+  },
+  "golden_rules": [
+    "Trade the session that suits the instrument (see sessions_sast.json)",
+    "Synthetic indices (V50/V75/V100) ignore sessions - trade them on pure structure 24/7",
+    "News candles on forex/gold/BTC are not technical - stand aside 15 min before/after red-folder news",
+    "3 consecutive losses = stop for the day",
+    "If ATR is abnormally low, the market is coiling - wait for the break, do not scalp chop"
+  ]
+}

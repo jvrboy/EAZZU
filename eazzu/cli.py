@@ -6,7 +6,7 @@ Sub-commands
 * ``ask``            one-shot agent query, prints answer & exits
 * ``keys``           set / get / list / delete provider keys (encrypted)
 * ``providers``      list every registered provider, optionally by category
-* ``trade``          list / backtest / live scalpers  (`--i-understand-risk` for live)
+* ``trade``          knowledge / analysis / signal generation / adaptive tracking / legacy scalpers
 * ``dev``            code analysis + run via vendored devtoolkit
 * ``research``       run the deep-research pipeline
 * ``net``            ip-info · dns · http-get
@@ -124,6 +124,15 @@ def cmd_providers(args) -> int:
 
 
 # --------------------------------------------------------------------- TRADE #
+def _load_trade_candles(args):
+    from eazzu.trading.intelligence.io import load_candles
+
+    candles, metadata = load_candles(args.candles)
+    symbol = getattr(args, "symbol", None) or metadata.get("symbol")
+    timeframe = getattr(args, "timeframe", None) or metadata.get("timeframe")
+    return candles, symbol, timeframe
+
+
 def cmd_trade(args) -> int:
     action = args.trade_action
     if action == "list":
@@ -134,6 +143,56 @@ def cmd_trade(args) -> int:
         from eazzu.tools.trade_tools import backtest_strategy
         _emit(backtest_strategy(args.strategy, args.symbol, args.days))
         return 0
+    if action == "knowledge":
+        from eazzu.tools.trade_tools import list_trading_knowledge
+        _emit(list_trading_knowledge())
+        return 0
+    if action in {"analyze", "signal"}:
+        try:
+            candles, symbol, timeframe = _load_trade_candles(args)
+            if action == "analyze":
+                from eazzu.trading.intelligence import TechnicalAnalysisEngine
+                _emit(TechnicalAnalysisEngine().analyze(candles, symbol=symbol, timeframe=timeframe).to_dict())
+            else:
+                from eazzu.trading.intelligence import AdaptiveSignalTracker, SignalGenerator
+                tracker = AdaptiveSignalTracker(args.ledger)
+                result = SignalGenerator(tracker=tracker).generate(
+                    candles,
+                    symbol=symbol,
+                    timeframe=timeframe,
+                    min_confidence=args.min_confidence,
+                    risk_multiple=args.risk_multiple,
+                    reward_multiple=args.reward_multiple,
+                    expiry_bars=args.expiry_bars,
+                )
+                if result.get("signal") and not args.no_record:
+                    result["tracking"] = tracker.record_signal(result["signal"])
+                else:
+                    result["tracking"] = {
+                        "recorded": False,
+                        "reason": "no_signal" if not result.get("signal") else "record_disabled",
+                    }
+                _emit(result)
+            return 0
+        except (OSError, ValueError) as exc:
+            print(f"trade {action} failed: {exc}", file=sys.stderr)
+            return 2
+    if action == "track":
+        from eazzu.trading.intelligence import AdaptiveSignalTracker
+        tracker = AdaptiveSignalTracker(args.ledger)
+        try:
+            if args.track_action == "summary":
+                _emit({"summary": tracker.summary(), "recent_signals": tracker.list_signals(args.limit)})
+            elif args.track_action == "resolve":
+                from eazzu.trading.intelligence.io import load_candles
+                candles, _ = load_candles(args.candles)
+                _emit(tracker.resolve_signal(args.signal_id, candles))
+            else:
+                return 1
+            return 0
+        except (OSError, ValueError, KeyError) as exc:
+            print(f"trade track {args.track_action} failed: {exc}", file=sys.stderr)
+            return 2
     if action == "live":
         if not args.i_understand_risk:
             print("⚠️  refusing to start live trading without --i-understand-risk")
@@ -232,14 +291,42 @@ def build_parser() -> argparse.ArgumentParser:
     pp.add_argument("--category", help="filter: llm | image | audio | search | embedding")
     pp.set_defaults(func=cmd_providers)
 
-    # trade
-    tp = sub.add_parser("trade", help="trading toolkit")
+    # trade — all intelligence commands are analysis-only and never submit orders.
+    tp = sub.add_parser("trade", help="trading analysis, signal tracking, and legacy toolkit")
     tsub = tp.add_subparsers(dest="trade_action", required=True)
-    tsub.add_parser("list")
-    bt = tsub.add_parser("backtest")
+    tsub.add_parser("list", help="list bundled trading capabilities")
+    tsub.add_parser("knowledge", help="list and validate packaged reference JSON")
+    bt = tsub.add_parser("backtest", help="prepare a legacy strategy backtest")
     bt.add_argument("--strategy", default="deriv_scalper")
     bt.add_argument("--symbol", default="R_75")
     bt.add_argument("--days", type=int, default=30)
+
+    for name, help_text in (
+        ("analyze", "run multi-method analysis on a local OHLCV JSON file"),
+        ("signal", "generate an analysis-only confluence signal from local OHLCV JSON"),
+    ):
+        command = tsub.add_parser(name, help=help_text)
+        command.add_argument("--candles", required=True, help="path to JSON OHLCV candles")
+        command.add_argument("--symbol", help="instrument symbol; defaults to the JSON metadata")
+        command.add_argument("--timeframe", help="candle timeframe; defaults to the JSON metadata")
+        if name == "signal":
+            command.add_argument("--min-confidence", type=float, default=0.56)
+            command.add_argument("--risk-multiple", type=float, default=1.5)
+            command.add_argument("--reward-multiple", type=float, default=2.0)
+            command.add_argument("--expiry-bars", type=int, default=12)
+            command.add_argument("--ledger", help="path for the local signal-performance ledger")
+            command.add_argument("--no-record", action="store_true", help="do not record the generated signal")
+
+    track = tsub.add_parser("track", help="inspect or resolve locally recorded analysis-only signals")
+    track_sub = track.add_subparsers(dest="track_action", required=True)
+    track_summary = track_sub.add_parser("summary", help="show outcome and adaptive-evidence statistics")
+    track_summary.add_argument("--ledger", help="path for the local signal-performance ledger")
+    track_summary.add_argument("--limit", type=int, default=20, help="number of recent signal records to show")
+    track_resolve = track_sub.add_parser("resolve", help="resolve one signal against later OHLCV candles")
+    track_resolve.add_argument("signal_id")
+    track_resolve.add_argument("--candles", required=True, help="path to subsequent JSON OHLCV candles")
+    track_resolve.add_argument("--ledger", help="path for the local signal-performance ledger")
+
     lv = tsub.add_parser("live")
     lv.add_argument("--i-understand-risk", action="store_true")
     tp.set_defaults(func=cmd_trade)

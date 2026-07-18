@@ -1,0 +1,73 @@
+{
+  "instrument": "XAUUSD",
+  "name": "Gold vs US Dollar",
+  "deriv_symbol": "frxXAUUSD",
+  "market_type": "commodity_forex",
+  "trading_hours": "Sun 23:00 - Fri 23:00 SAST approx, closed weekends, daily rollover break ~23:55-01:00 SAST",
+  "personality": {
+    "summary": "High-volatility trending instrument. Moves in strong impulsive legs followed by deep retracements. Loves sweeping liquidity (stop hunts) before the real move. The best trending pair for day trading, dangerous for tight-stop scalping outside London/NY.",
+    "average_daily_range_usd": "18-35 (expands to 50+ on news days)",
+    "spread_behavior": "Tight in London/NY, widens 3-10x during 00:00-05:00 SAST rollover window",
+    "typical_moves": [
+      "Asian session builds a tight range (accumulation)",
+      "London open (09:00-10:00 SAST) sweeps one side of the Asian range, then reverses = classic Judas swing",
+      "NY open (14:30-15:30 SAST) delivers the strongest impulse of the day, often continuing or violently reversing London",
+      "Retracements regularly hit 50-61.8% fib of the impulse leg before continuing"
+    ]
+  },
+  "best_timeframes": {
+    "bias": "H4 + H1",
+    "execution": "M15",
+    "entry": "M5 / M1"
+  },
+  "key_technicals": {
+    "moving_averages": "Respects 50 EMA and 200 EMA on H1 strongly; M15 21 EMA acts as dynamic support in trends",
+    "fibonacci": "61.8% retracement of London/NY impulse legs is the highest-probability continuation entry",
+    "round_numbers": "Reacts at $5 and $10 increments (e.g. 2450, 2455, 2460); $50 levels are major (2400, 2450)",
+    "liquidity": "Equal highs/lows and Asian range extremes are magnets - expect sweeps before reversals",
+    "rsi": "In strong trends RSI stays overbought/oversold for hours - do NOT counter-trend on RSI alone; use RSI divergence at HTF levels only"
+  },
+  "scalping_plan": {
+    "sessions": "London open 09:00-12:00 SAST and NY open 14:30-17:00 SAST ONLY",
+    "setup_1_asian_range_sweep": {
+      "steps": [
+        "Mark Asian session high/low (02:00-09:00 SAST)",
+        "Wait for London to sweep one extreme with a wick and reject",
+        "Enter on M5 close back inside the range toward the opposite extreme",
+        "SL beyond the sweep wick + 1x ATR(14,M5), TP at range midpoint then opposite extreme"
+      ]
+    },
+    "setup_2_ema_pullback": {
+      "steps": [
+        "Trend defined by M15 21 EMA slope + structure",
+        "Wait for pullback to 21 EMA that overlaps an M15 order block or fib 50-61.8%",
+        "M1 trigger: bullish/bearish engulfing at the zone",
+        "SL beyond zone, TP 1:1.5 fixed - exit fast, gold reverses hard"
+      ]
+    },
+    "risk": "Stops must be minimum 1.5x ATR(14,M5) - gold wicks through tight stops constantly. Reduce size instead of tightening stops."
+  },
+  "day_trading_plan": {
+    "model": "One good trade per session from the H1 zone",
+    "steps": [
+      "Pre-mark H1 supply/demand + PDH/PDL before London",
+      "Let the session open sweep liquidity into your zone",
+      "Enter on M15 CHoCH (change of character) at the zone",
+      "Partial at 1R, trail behind M15 swings, target opposite side of daily range"
+    ]
+  },
+  "after_hours_00_05_sast": {
+    "conditions": "Dead liquidity, wide spreads, rollover spike risk around 00:00-01:00 SAST. Sydney/early Tokyo only.",
+    "verdict": "DO NOT scalp gold in this window. Spread alone can exceed a scalp target.",
+    "what_to_do_instead": [
+      "Mark the developing Asian range for the London sweep setup",
+      "Note any levels swept late NY - they become targets for London",
+      "If a position must be held overnight, widen stop beyond spread expansion or close before 23:45 SAST"
+    ]
+  },
+  "invalidations_and_traps": [
+    "Breakout candles during Asian hours are usually fake - fade or ignore them",
+    "First London move frequently reverses - wait for the sweep, not the break",
+    "Never hold scalps through 15:30 SAST US data releases (CPI/NFP/FOMC days: stand aside entirely)"
+  ]
+}

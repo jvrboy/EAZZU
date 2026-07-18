@@ -1,0 +1,68 @@
+{
+  "title": "Session Playbook - All Times in SAST (UTC+2)",
+  "note": "Forex/gold/BTC follow these sessions. Deriv synthetics (V50/V75/V100) are session-agnostic and tradeable identically 24/7.",
+  "sessions": {
+    "sydney": {
+      "time_sast": "00:00 - 09:00",
+      "character": "Thin liquidity, small ranges. Only AUD pairs have genuine flow.",
+      "best_instruments": ["AUDUSD", "V50", "V75", "V100"]
+    },
+    "tokyo": {
+      "time_sast": "02:00 - 11:00",
+      "character": "Defined ranges, respect of levels, yen pairs most active. Ranges built here become London's liquidity targets.",
+      "best_instruments": ["USDJPY", "AUDUSD", "V50", "V75"]
+    },
+    "london": {
+      "time_sast": "09:00/10:00 - 18:00 (varies with DST)",
+      "character": "First real volume of the day. Classic pattern: sweep the Asian range, then run the true direction. Best for gold and all majors.",
+      "best_instruments": ["XAUUSD", "USDJPY", "AUDUSD", "USDCAD", "BTCUSD"],
+      "key_windows": {
+        "09:00-10:30": "Opening drive / Judas swing - highest scalping quality",
+        "12:00-14:00": "Lunch lull - reduce activity, ranges compress"
+      }
+    },
+    "new_york": {
+      "time_sast": "14:30/15:30 - 23:00 (varies with DST)",
+      "character": "Largest volume, biggest candles, real breakouts. USDCAD only comes alive here. US data drops at 14:30 SAST.",
+      "best_instruments": ["XAUUSD", "USDCAD", "USDJPY", "BTCUSD"],
+      "key_windows": {
+        "14:30-16:00": "NY open momentum - best day-trade entries of the day",
+        "15:30-18:00": "London/NY overlap - maximum liquidity of the entire day",
+        "21:00-23:00": "Late NY fade - ranges form, momentum dies, book profits"
+      }
+    }
+  },
+  "after_hours_master_plan_00_05_sast": {
+    "overview": "22:00-03:00 UTC. NY has closed, Sydney opens 00:00, Tokyo opens 02:00. The thinnest window for USD/CAD/gold; genuinely active for AUD, JPY and all synthetics.",
+    "instrument_verdicts": {
+      "V50": "TRADE - safest night instrument, full playbook applies",
+      "V75": "TRADE - full playbook applies, respect spike stops",
+      "V100": "TRADE with halved size, with-trend setups only, max 3 trades",
+      "USDJPY": "TRADE from 02:00 (Tokyo open) - opening drive + first pullback",
+      "AUDUSD": "TRADE - Sydney/Tokyo home hours, modest targets 5-8 pips",
+      "BTCUSD": "MEAN-REVERSION ONLY - fade NY range sweeps, never trade breakouts here",
+      "XAUUSD": "AVOID - spread widening kills scalps; only mark levels",
+      "USDCAD": "AVOID COMPLETELY - both home markets closed, pure noise"
+    },
+    "hour_by_hour": {
+      "00:00-01:00": "Rollover: forex/gold spreads spike, avoid all fiat entries. Synthetics unaffected - trade V50/V75.",
+      "01:00-02:00": "Pre-Tokyo drift. Mark late-NY highs/lows on JPY/AUD. Synthetics normal. Japanese data possible 01:30/01:50.",
+      "02:00-03:30": "Tokyo open. USDJPY opening drive + pullback entries. AUDUSD momentum if Sydney range breaks. AU data risk 03:30.",
+      "03:30-05:00": "Established Tokyo rhythm: trade Tokyo-range edges on JPY/AUD, continue synthetic playbook."
+    },
+    "night_risk_rules": [
+      "Halve normal position size on all fiat instruments (thin books exaggerate slippage)",
+      "Synthetics keep normal size (V100 excepted) - their liquidity is engineered, not real",
+      "Predefine the session before it starts: instruments, setups, max trades, loss cap",
+      "Fatigue check: if you skip your checklist even once, end the session",
+      "Hard stop at 05:00 - do not bleed into pre-London chop with a tired mind"
+    ]
+  },
+  "weekly_rhythm": {
+    "monday": "Ranges establish; often retraces the weekend/Friday move. Trade smaller.",
+    "tuesday_thursday": "Best trend days of the week for forex and gold.",
+    "friday": "Morning tradeable; after 18:00 SAST positions square up - book profits, avoid new day trades.",
+    "sunday_open": "23:00 SAST forex reopen can gap - never hold tight-stop trades over the weekend. Synthetics have no gaps.",
+    "news_calendar_rule": "Check high-impact USD/AUD/CAD/JPY events daily. 15 min before to 15 min after = no fiat trades. Synthetics are immune."
+  }
+}

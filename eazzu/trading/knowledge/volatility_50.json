@@ -1,0 +1,75 @@
+{
+  "instrument": "Volatility 50 Index",
+  "name": "Deriv Volatility 50 (1s variant exists as 1HZ50V)",
+  "deriv_symbol": "R_50",
+  "market_type": "synthetic_index",
+  "trading_hours": "24/7/365 - never closes, no sessions, no news, no gaps",
+  "engine": {
+    "how_it_moves": "RNG-generated price at a constant 50% annualized volatility - the calmest of your three synthetics. Tick every ~2 seconds. Time of day is irrelevant.",
+    "critical_implication": "Smoothest synthetic = the best pure SCALPING vehicle on your entire list. Smaller wicks, fewer violent spikes, cleaner respect of intraday levels."
+  },
+  "personality": {
+    "summary": "Steady and orderly. Trends are slower and smoother than V75/V100, ranges are cleaner and last longer, and stop-hunting wicks are the mildest of the three. Ideal for high-frequency scalping and for practicing execution. The trade-off: moves are smaller, so targets must be realistic and spread-aware.",
+    "typical_spread": "Tightest of the three synthetics",
+    "behavioral_patterns": [
+      "Ranges form frequently and respect their edges multiple times - range-fading works here better than on V75/V100",
+      "Trend legs are gradual staircases rather than explosions",
+      "Pullbacks are shallow-to-moderate (38.2-50% typical)",
+      "M1 structure is actually usable on V50, unlike V100"
+    ]
+  },
+  "best_timeframes": {
+    "bias": "H1",
+    "execution": "M5",
+    "entry": "M1 / M5"
+  },
+  "key_technicals": {
+    "moving_averages": "M5 9/21 EMA ribbon defines the scalping trend; H1 50 EMA for overall bias",
+    "bollinger": "BB(20,2) on M5 works well in ranges - band fades back to midline are consistent",
+    "structure": "M5 BOS/CHoCH is clean and reliable; ranges give multiple honest touches before breaking",
+    "atr": "Stops = 1.5-2x ATR(M5) - tighter than V75/V100 is acceptable here",
+    "stochastic": "Stoch(5,3,3) on M1 times entries at M5 zones effectively on this index"
+  },
+  "scalping_plan": {
+    "sessions": "Any hour 24/7 - your primary high-frequency instrument",
+    "setup_1_range_edge_fade": {
+      "steps": [
+        "Confirm range: H1 flat, M5 price oscillating between two zones with 2+ touches each",
+        "At an edge touch, wait for M1 rejection candle + Stoch(5,3,3) cross from extreme",
+        "Enter toward mid-range, SL 1.5x ATR(M5) beyond the edge",
+        "TP1 at BB midline / range middle, TP2 at opposite edge"
+      ]
+    },
+    "setup_2_ribbon_pullback": {
+      "steps": [
+        "M5 9 EMA above 21 EMA (or below for shorts) with clean structure = scalping trend",
+        "Enter on M1 close back in trend direction after a tag of the 21 EMA",
+        "SL beyond the pullback swing, TP 1:1 to 1:1.5, repeat on each pullback"
+      ]
+    },
+    "risk": "1% max per scalp. V50's danger is overtrading, not volatility: set a max of 10-15 trades per session and stop at your daily loss cap regardless of how 'safe' it feels."
+  },
+  "day_trading_plan": {
+    "model": "Range-to-trend transition",
+    "steps": [
+      "Track the mature M15 range; when one edge finally breaks with an M15 momentum close, trade the retest",
+      "SL inside the range midpoint, target = measured move of the range height",
+      "Trend days are slower here - trail on M15 and be patient"
+    ]
+  },
+  "after_hours_00_05_sast": {
+    "conditions": "Identical to every other hour.",
+    "verdict": "FULLY TRADEABLE - your safest instrument for the 00:00-05:00 SAST window. Recommended default night instrument.",
+    "playbook": [
+      "Run setup_1 and setup_2 exactly as in daytime",
+      "Ideal pairing for the window: V50 for volume of trades, V75 for the one or two trend trades",
+      "Fatigue rule still applies: predefine trade count and loss cap before the session"
+    ]
+  },
+  "invalidations_and_traps": [
+    "Small moves tempt oversized positions - size by ATR-based stop, never by 'it barely moves'",
+    "Spread eats a larger fraction of each V50 scalp - minimum TP must be at least 3x spread",
+    "When V50 finally breaks a mature range, do NOT keep fading the edges - regime has changed",
+    "Boredom trades kill V50 accounts: no valid zone = no trade, even at 3am"
+  ]
+}

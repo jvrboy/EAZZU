@@ -99,8 +99,13 @@ The agent can call the following tools autonomously:
 | `http_get`       | Fetch a URL, return status + body                          |
 | `dns_lookup`     | Resolve a hostname                                         |
 | `ip_info`        | Classify an IP address                                     |
-| `list_strategies`| Show bundled trading strategies                            |
-| `backtest_strategy` | Prepare a backtest run                                  |
+| `list_strategies`| Show bundled trading strategies and analysis capabilities  |
+| `backtest_strategy` | Prepare a legacy backtest run without an order          |
+| `list_trading_knowledge` | Validate and list all packaged trading-reference JSON documents |
+| `analyze_market` | Analyze supplied OHLCV data across indicators, structure, price action, liquidity, volume, volatility, and regime |
+| `generate_signal` | Produce and optionally record an analysis-only confluence signal from supplied OHLCV data |
+| `resolve_signal` | Resolve a recorded signal against later candles and learn only from clear outcomes |
+| `signal_tracker_summary` | Show signal outcomes and bounded per-evidence learning state |
 | `analyze_code`   | Static/AI code analysis via devtoolkit                     |
 | `run_file`       | Execute a script through the vendored runner              |
 | `web_search`     | Quick DuckDuckGo instant-answer lookup                     |
@@ -110,17 +115,54 @@ models work too** — no function-calling API required.
 
 ---
 
-## 📈 Trading
+## 📈 Trading intelligence
+
+EAZZU now packages the uploaded technical-analysis knowledge base under
+`eazzu/trading/knowledge/`. The twelve JSON documents remain intact and are
+validated at runtime. Instrument profiles, session references, and the master
+guide are surfaced as **reference context**; only supplied OHLCV candle data
+is used to calculate an analysis or signal.
+
+| Capability | What it does | Boundary |
+| --- | --- | --- |
+| Knowledge browser | Lists and validates all packaged reference JSON documents | Read-only; no document content is executed |
+| Multi-method analysis | Combines trend, market structure, momentum, volatility, price action, liquidity, volume, regime, and reference context | Requires local caller-supplied OHLCV JSON; no price feed is fetched |
+| Confluence signal generator | Requires multiple independent evidence domains, records every contribution, and abstains in weak or choppy conditions | Produces an analysis-only hypothesis, never a broker order or position size |
+| Signal tracker | Resolves recorded signals against later candles and learns bounded evidence weights after clear outcomes | Ambiguous intrabar stop/target events are not used for learning |
 
 ```bash
+# Inspect all packaged knowledge documents
+eazzu trade knowledge
+
+# Analyze local OHLCV candle data
+eazzu trade analyze --candles ./candles.json --symbol R_75 --timeframe 5m
+
+# Generate and record an analysis-only signal
+eazzu trade signal --candles ./candles.json --symbol R_75 --timeframe 5m \
+  --ledger ~/.eazzu/signal_ledger.json
+
+# Inspect performance and adaptive evidence statistics
+eazzu trade track summary --ledger ~/.eazzu/signal_ledger.json
+
+# Resolve a recorded signal using candles that occurred after its entry
+eazzu trade track resolve SIGNAL_ID --candles ./future-candles.json \
+  --ledger ~/.eazzu/signal_ledger.json
+
+# Legacy interfaces remain available
 eazzu trade list
 eazzu trade backtest --strategy deriv_scalper --symbol R_75 --days 30
 eazzu trade live --i-understand-risk
 ```
 
-Live trading is intentionally guarded by the `--i-understand-risk` flag — the
-underlying runners live under `eazzu.trading.*` and require your own Deriv API
-token.
+The analysis and signal commands accept a top-level JSON candle list, or an
+object containing `candles`, `data`, `history`, or `ohlcv`. Each candle must
+include numeric `open`, `high`, `low`, and `close` values; `epoch`, `time`, or
+`timestamp` and `volume` are optional. At least thirty valid candles are
+required, while longer histories provide more stable long-trend context.
+
+> Generated signals are educational, analysis-only outputs. They do not fetch
+> market data, submit orders, calculate position sizes, or guarantee a trading
+> outcome. Live trading remains separately guarded by `--i-understand-risk`.
 
 ---
 
@@ -164,7 +206,9 @@ EAZZU/
 │   ├── agent/            # tool-using LLM loop
 │   ├── providers/        # 80+ AI providers (was `ai_connector`)
 │   ├── tools/            # tool registry surfaced to the agent
-│   ├── trading/          # merged Deriv/Forex bots + trading system
+│   ├── trading/          # legacy bots plus analysis-only intelligence modules
+│   │   ├── intelligence/ # knowledge access, analysis, confluence signals, tracker
+│   │   └── knowledge/    # 12 packaged technical-analysis JSON documents
 │   ├── dev/toolkit/      # merged devtoolkit
 │   ├── net/              # VPN core + IP utilities
 │   ├── media/swiss_knife # media converters

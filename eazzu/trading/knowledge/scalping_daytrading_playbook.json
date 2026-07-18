@@ -1,0 +1,70 @@
+{
+  "title": "Universal Scalping & Day Trading Playbook",
+  "style": "Quick trades, many trades - high frequency with strict process",
+  "scalping_system": {
+    "definition": "Trades lasting 1-15 minutes, fixed targets, executed only at pre-marked zones during the instrument's active window (synthetics: any time).",
+    "pre_session_checklist": [
+      "Mark H1 trend direction and the 2-3 nearest H1 zones",
+      "Mark session-relevant liquidity: Asian range, PDH/PDL, equal highs/lows",
+      "Check news calendar (fiat instruments only)",
+      "Write down: instruments, max trades, daily loss cap - BEFORE the first trade"
+    ],
+    "entry_requirements_all_must_be_true": [
+      "Price is AT a pre-marked zone (never mid-air entries)",
+      "Trade direction agrees with M15 structure (or a confirmed range)",
+      "Candle trigger printed and CLOSED (engulfing / pin rejection / inside-bar break)",
+      "Momentum agrees (RSI reset in trend, or RSI extreme at range edge)",
+      "Spread is normal for the instrument (check before every night trade)"
+    ],
+    "exit_rules": {
+      "take_profit": "Fixed 1:1 to 1:1.5 RR. Scalps are not runners. Bank and reload.",
+      "stop_loss": "ATR-based (see each instrument file), placed beyond the zone/wick, NEVER moved further away",
+      "time_stop": "If the trade has not moved in your favor within 10-15 candles of the entry timeframe, exit at market - the setup failed quietly",
+      "breakeven": "Move SL to entry only after +0.7R on scalps"
+    },
+    "frequency_control": {
+      "max_trades_per_session": "6-10 (V50 range days up to 15)",
+      "after_2_losses_in_a_row": "Mandatory 15-minute break away from screen",
+      "after_3_losses": "Session over. No exceptions.",
+      "quality_gate": "Every trade must name its setup from the instrument's JSON file. 'It looks like it will go up' is not a setup."
+    }
+  },
+  "day_trading_system": {
+    "definition": "1-3 trades per day held 30 minutes to several hours, targeting the day's main expansion leg.",
+    "daily_routine": [
+      "Before London: top-down analysis (H4 -> H1 -> M15) on each instrument, write the day's bias",
+      "Define the ONE level per instrument where you would trade, and the trigger you need",
+      "If price never reaches the level, there is no trade - a flat day is a winning day"
+    ],
+    "entry_model": "Liquidity sweep INTO your H1 zone -> M15 CHoCH -> entry on the retrace to the M15 breaker/order block",
+    "management": {
+      "partial": "Take 30-50% off at 1R",
+      "trail": "Behind M15 swing points; give trends room to breathe",
+      "hard_exit": "H1 structure break against you, or 30 min before major news (fiat), or 22:30 SAST for forex day trades"
+    },
+    "targets": "PDH/PDL, weekly high/low, measured moves, major round numbers"
+  },
+  "risk_management": {
+    "per_trade_risk": {
+      "default": "1% of account",
+      "V100": "0.5% maximum",
+      "night_window_fiat": "0.5% (halved)"
+    },
+    "daily_loss_cap": "3% - platform closed for the day when hit",
+    "weekly_loss_cap": "6% - reduce all sizes 50% the following week",
+    "position_sizing_formula": "lots = (account * risk%) / (stop_distance_in_points * point_value)",
+    "forbidden": [
+      "Martingale, grid, or doubling after losses (especially on synthetics)",
+      "Moving stops away from price",
+      "Averaging into losing positions",
+      "Trading without a stop loss 'just for a second'",
+      "Holding forex scalps through red-folder news"
+    ]
+  },
+  "accuracy_multipliers": {
+    "confluence_scoring": "Only take trades with 3+ confluences: zone + structure + trigger + momentum + (session timing for fiat). More confluence = larger size within your risk cap.",
+    "trade_journal_fields": ["instrument", "setup name", "session", "confluences", "RR planned vs achieved", "screenshot", "emotional state 1-5"],
+    "weekly_review": "Every weekend: win rate per setup per instrument. Cut the bottom setup, double focus on the top one.",
+    "the_edge": "Your edge is not prediction - it is taking the same 5-6 setups at the same quality zones hundreds of times with fixed risk."
+  }
+}

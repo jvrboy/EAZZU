@@ -1,0 +1,75 @@
+{
+  "instrument": "Volatility 100 Index",
+  "name": "Deriv Volatility 100 (1s variant exists as 1HZ100V)",
+  "deriv_symbol": "R_100",
+  "market_type": "synthetic_index",
+  "trading_hours": "24/7/365 - never closes, no sessions, no news, no gaps",
+  "engine": {
+    "how_it_moves": "RNG-generated price calibrated to a constant 100% annualized volatility - the fastest of your three synthetics. Tick every ~2 seconds. Sessions, time of day, and news are all irrelevant.",
+    "critical_implication": "Same technicals as V75 but every move, wick, and stop-out is bigger. Position size must be the smallest of all your instruments."
+  },
+  "personality": {
+    "summary": "The high-octane synthetic. Huge candles, brutal spike wicks, fast trend legs and equally fast reversals. Delivers the biggest R-multiples in the shortest time but punishes tight stops and oversized positions harder than anything else you trade. Treat it as V75's aggressive sibling: same playbook, wider stops, smaller size.",
+    "typical_spread": "Widest of the three synthetics - scalp targets must clear the spread comfortably",
+    "behavioral_patterns": [
+      "Trend legs travel further and faster than V75; pullbacks are deeper (50-61.8% is normal)",
+      "Spike wicks of 3x ATR against the trend are routine - then price resumes",
+      "Ranges are violent: both edges get swept before the true break",
+      "M1 is nearly pure noise - execute on M5 minimum"
+    ]
+  },
+  "best_timeframes": {
+    "bias": "H1 + H4",
+    "execution": "M15",
+    "entry": "M5 (avoid M1)"
+  },
+  "key_technicals": {
+    "moving_averages": "M15 21 EMA + H1 50 EMA trend stack; only trade when both agree",
+    "structure": "BOS/CHoCH on M15 is the primary signal; M5 structure alone whipsaws too much",
+    "atr": "Stops = 2.5-3x ATR(M5) minimum. If that stop makes your size feel tiny, that is correct",
+    "fibonacci": "Deep 61.8-78.6% retracements of impulse legs are the premium continuation entries",
+    "rsi": "M15 RSI divergence at range extremes is reliable; ignore all M1 RSI signals"
+  },
+  "scalping_plan": {
+    "sessions": "Any hour 24/7 - but V100 scalps are really 'fast day trades': M5-based, wider targets",
+    "setup_1_deep_pullback_continuation": {
+      "steps": [
+        "H1 trend confirmed (structure + 50 EMA slope)",
+        "Wait for M15 pullback into the 50-78.6% fib zone of the last impulse that overlaps an order block",
+        "M5 trigger: engulfing or double-bottom/top at the zone",
+        "SL 2.5x ATR(M5) beyond the zone, TP 1:1.5 fixed - do not get greedy on scalps here"
+      ]
+    },
+    "setup_2_range_double_sweep": {
+      "steps": [
+        "Identify M15 range with at least 2 touches per side",
+        "Wait for BOTH edges to be swept (V100 signature), then trade the third move from the reclaimed edge",
+        "SL beyond the latest sweep, TP opposite edge"
+      ]
+    },
+    "risk": "Max 0.5% risk per trade on V100 - half your normal risk. One oversized V100 loss undoes a week of scalps. Hard rule: 2 consecutive V100 losses = switch to V50/V75 for the rest of the session."
+  },
+  "day_trading_plan": {
+    "model": "H1 impulse rider - highest R-multiple instrument you trade",
+    "steps": [
+      "Enter on M15 CHoCH at an H1 zone after a deep pullback",
+      "Partial at 1R immediately (spike insurance), trail rest behind M15 swings",
+      "Trend legs of 4-8R are realistic - let the runner run until H1 structure breaks"
+    ]
+  },
+  "after_hours_00_05_sast": {
+    "conditions": "Identical to every other hour - constant engineered volatility.",
+    "verdict": "FULLY TRADEABLE, but the combination of maximum instrument volatility + trader fatigue at night is dangerous. If you trade V100 in this window, cut size a further 50%.",
+    "playbook": [
+      "Prefer setup_1 (with-trend) only; skip range trades at night",
+      "Cap the window at 3 V100 trades",
+      "If you feel the urge to revenge trade after a V100 stop-out, close the platform - this instrument exploits tilt"
+    ]
+  },
+  "invalidations_and_traps": [
+    "Tight stops are donations on V100 - if you cannot afford the 2.5-3x ATR stop, skip the trade",
+    "Chasing a running candle is fatal: entries are at zones only, never mid-impulse",
+    "Martingale/grid recovery on V100 destroys accounts faster than on any other instrument",
+    "M1 signals are noise - if your trigger only exists on M1, there is no trade"
+  ]
+}

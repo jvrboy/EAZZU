@@ -23,11 +23,11 @@ an iPhone via [**iSH**](https://ish.app).
 | --------------------- | --------------------------------------------------------------------------------- | --------------------------------------------- |
 | `eazzu.agent`         | new                                                                               | ReAct-style tool-using LLM agent              |
 | `eazzu.providers`     | `ai_connector`                                                                    | 80+ AI providers behind one API               |
-| `eazzu.tools`         | new                                                                               | Shell, files, net, trade, dev, research tools |
-| `eazzu.trading`       | `Bot2 / Deriv / deriv_scalper / deriv-perpetual-scalper / forexstream / …`        | Scalpers, signal bots, backtest engines       |
+| `eazzu.tools`         | new                                                                               | Shell, files, net, trade, dev, research, music, web, deriv, image tools |
+| `eazzu.trading`       | `Bot2 / Deriv / deriv_scalper / deriv-perpetual-scalper / forexstream / …`        | Scalpers, signal bots, backtest engines, **real-time Deriv API** |
 | `eazzu.dev`           | `Devtool/devtoolkit`                                                              | AI analyzer, debugger, runner, extractor      |
 | `eazzu.net`           | `UltraVPN / Ip / ip_generator / network_toolkit_pro`                              | VPN core, IP utilities                        |
-| `eazzu.media`         | `Tools/swiss_knife`                                                               | Media converters, downloaders, organizers     |
+| `eazzu.media`         | `Tools/swiss_knife`                                                               | Media converters, downloaders, organizers, **image tools** |
 | `eazzu.tools.deep_research` | `deep-research`                                                             | Server + client deep-research pipeline        |
 | `eazzu.web`           | `Neural-AI-ChatApp`                                                               | Static chat web UI served via `eazzu web`     |
 
@@ -39,7 +39,7 @@ an iPhone via [**iSH**](https://ish.app).
 git clone https://github.com/EAZZU/EAZZU.git
 cd EAZZU
 pip install -e .            # base install (works on iSH)
-pip install -e '.[full]'    # everything (pandas, rich, ws-client)
+pip install -e '.[full]'    # everything (pandas, rich, ws-client, pillow)
 ```
 
 ### iOS via iSH
@@ -109,6 +109,16 @@ The agent can call the following tools autonomously:
 | `analyze_code`   | Static/AI code analysis via devtoolkit                     |
 | `run_file`       | Execute a script through the vendored runner              |
 | `web_search`     | Quick DuckDuckGo instant-answer lookup                     |
+
+### New in v1.2 — advanced tool suites
+
+| Tool suite | Tools | Purpose |
+| --- | --- | --- |
+| **Music** (`eazzu.tools.music_tools`) | `ai_melody`, `ai_chord_progression`, `ai_drum_pattern`, `ai_arpeggio`, `ai_bass_line`, `ai_song_structure`, `find_scales`, `euclidean_rhythm`, `mixing_console_state`, `auto_master`, `generate_midi_file`, `analyze_audio`, `split_stems` | AI composition, synthesis, analysis, MIDI, mastering |
+| **Advanced music** (`eazzu.audio.advanced_music`) | `granular_synthesize`, `spectral_dft`, `spectral_freeze`, `harmonic_analysis`, `detect_pitch_autocorrelation`, `generate_counterpoint`, `generate_fugue`, `markov_melody`, `chord_voicing`, `write_wav`, `apply_distortion`, `apply_chorus`, `apply_compressor`, `generate_polyrhythm`, `swing_quantize` | Extended DSP, spectral processing, generative algorithms |
+| **Web access** (`eazzu.tools.web_tools`) | `http_get`, `http_post`, `http_head`, `extract_text`, `extract_links`, `extract_meta`, `web_search`, `fetch_json`, `download_file`, `url_info` | Fetch, scrape, search, extract content from the web |
+| **Deriv real-time** (`eazzu.tools.deriv_tools`) | `deriv_ping`, `deriv_active_symbols`, `deriv_tick`, `deriv_ticks_history`, `deriv_candles`, `deriv_candles_range`, `deriv_proposal`, `deriv_website_status`, `deriv_time`, `deriv_exchange_rates`, `deriv_collect_ticks`, `deriv_collect_candles`, `deriv_price_snapshot` | Real-time forex / synthetic-index data via Deriv public API (app_id 1089) |
+| **Image** (`eazzu.tools.image_tools`) | `generate_gradient`, `generate_noise`, `generate_checkerboard`, `generate_plasma`, `generate_mandelbrot`, `adjust_brightness/contrast/gamma`, `grayscale`, `invert`, `sepia`, `box_blur`, `sharpen`, `edge_detect`, `color_balance`, `threshold`, `resize_nearest/bilinear`, `rotate_90`, `flip`, `crop`, `histogram`, `average_color`, `dominant_color`, `brightness_stats`, `blend`, `overlay_text`, `encode_ppm/png`, `pil_*` | Procedural generation, filters, transforms, analysis, codecs |
 
 Tool calls are surfaced through a portable JSON protocol so **strict text-only
 models work too** — no function-calling API required.
@@ -186,6 +196,78 @@ eazzu web --port 8787          # serves the bundled Neural chat webapp
 
 ---
 
+## 📊 Real-time forex data (Deriv public API)
+
+EAZZU v1.2 ships a real-time Deriv API client (`eazzu.trading.deriv_api`) that
+uses Deriv's default public application (app_id 1089) — **no API token
+required** for market data. Tick, candle, symbol, proposal and exchange-rate
+calls work out of the box. Streaming uses `websocket-client` when available
+and falls back to a REST poll loop on iSH/Alpine.
+
+```bash
+eazzu deriv ping                       # verify connectivity
+eazzu deriv symbols                     # list tradeable symbols
+eazzu deriv tick frxEURUSD              # latest EUR/USD quote
+eazzu deriv candles R_75 --count 50 --granularity 60   # 1-minute candles
+eazzu deriv rates --base USD            # exchange rates
+eazzu deriv collect-ticks R_100 --count 20             # stream 20 ticks
+eazzu deriv snapshot --symbols frxEURUSD,frXGBPUSD,R_75
+```
+
+> Market-data only. No orders are placed and no account token is required.
+
+---
+
+## 🎵 Music suite
+
+The full pure-Python audio suite (synthesis, sequencing, mixing, MIDI,
+sampling, effects, mastering, visualization, stem separation, voice
+synthesis, Vinny AI composer) is now exposed as agent tools and CLI commands.
+
+```bash
+eazzu music melody --key C --scale minor --mood sad --bars 8
+eazzu music chords --key G --style jazz --bars 4
+eazzu music drums --genre trap --steps 16
+eazzu music bass --key F --scale minor --genre dnb --bars 4
+eazzu music structure --genre house
+eazzu music scales                     # list all scales
+eazzu music euclidean --steps 16 --pulses 5 --rotation 2
+eazzu music analyze ./audio.json        # BPM, key, LUFS, spectrum, transients
+```
+
+---
+
+## 🖼  Image suite
+
+A pure-stdlib image toolkit (procedural generation, filters, transforms,
+analysis, PPM/PNG codecs) plus optional Pillow-enhanced operations.
+
+```bash
+eazzu image gradient --width 512 --height 512 --direction diagonal --color1 10,20,90 --color2 200,180,255
+eazzu image plasma --width 512 --height 512 --scale 0.03
+eazzu image mandelbrot --width 512 --height 512 --max-iter 120 --zoom 2 --cx -0.745
+eazzu image noise --width 256 --height 256 --seed 7
+eazzu image checkerboard --width 256 --height 256 --cells 10
+eazzu image pil                         # check Pillow availability
+```
+
+---
+
+## 🌍 Web access tools
+
+```bash
+eazzu webtools get https://example.com
+eazzu webtools extract https://en.wikipedia.org/wiki/Forex
+eazzu webtools links https://news.ycombinator.com
+eazzu webtools meta https://github.com
+eazzu webtools search "deriv api documentation"
+eazzu webtools json https://api.github.com/repos/jvrboy/EAZZU
+eazzu webtools download https://example.com/file.zip ./file.zip
+eazzu webtools url https://user:pass@example.com:8080/path?q=1#frag
+```
+
+---
+
 ## 🧪 Tests
 
 ```bash
@@ -208,10 +290,13 @@ EAZZU/
 │   ├── tools/            # tool registry surfaced to the agent
 │   ├── trading/          # legacy bots plus analysis-only intelligence modules
 │   │   ├── intelligence/ # knowledge access, analysis, confluence signals, tracker
-│   │   └── knowledge/    # 12 packaged technical-analysis JSON documents
+│   │   ├── knowledge/    # 12 packaged technical-analysis JSON documents
+│   │   └── deriv_api.py  # real-time Deriv public API client
+│   ├── audio/            # full music production suite + advanced_music DSP
 │   ├── dev/toolkit/      # merged devtoolkit
 │   ├── net/              # VPN core + IP utilities
-│   ├── media/swiss_knife # media converters
+│   ├── media/            # media converters + image tools (font5x7, codecs)
+│   ├── tools/            # tool registry (music, web, deriv, image, ...)
 │   ├── tools/deep_research
 │   ├── web/chat/         # Neural chat web UI
 │   ├── cli.py            # unified `eazzu` CLI

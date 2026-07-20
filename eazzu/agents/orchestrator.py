@@ -19,6 +19,9 @@ from eazzu.agents.liquidity_agent import run_liquidity_agent
 from eazzu.agents.correlation_agent import run_correlation_agent
 from eazzu.agents.execution_flow_agent import run_execution_flow_agent
 from eazzu.agents.pattern_agent import run_pattern_agent
+from eazzu.agents.optimization_agent import run_optimization_agent
+from eazzu.agents.automation_agent import run_automation_agent
+from eazzu.agents.web_scraping_agent import run_web_scraping_agent
 from eazzu.agents.self_learning_agent import get_learned_weights, get_strategy_performance
 
 ACTIVE_AGENTS = [
@@ -31,6 +34,9 @@ ACTIVE_AGENTS = [
     "correlation-agent",
     "execution-flow-agent",
     "pattern-agent",
+    "optimization-agent",
+    "automation-agent",
+    "web-scraping-agent",
     "self-learning-agent",
 ]
 
@@ -64,6 +70,9 @@ def run_full_analysis(
     news_score: float = 0.0,
     social_score: float = 0.0,
     market_score: float = 0.0,
+    run_optimization: bool = True,
+    run_automation: bool = True,
+    run_web_scraping: bool = False,
 ) -> Dict[str, Any]:
     global _state
     _state["isRunning"] = True
@@ -85,6 +94,13 @@ def run_full_analysis(
         results["correlation-agent"] = run_correlation_agent(pair, candles, other_assets)
     results["execution-flow-agent"] = run_execution_flow_agent(pair, candles, ticks)
     results["pattern-agent"] = run_pattern_agent(pair, timeframe, candles)
+
+    if run_optimization:
+        results["optimization-agent"] = run_optimization_agent()
+    if run_automation:
+        results["automation-agent"] = run_automation_agent()
+    if run_web_scraping:
+        results["web-scraping-agent"] = run_web_scraping_agent()
 
     for r in results.values():
         for sig in r.signals:

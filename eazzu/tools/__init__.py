@@ -5,6 +5,8 @@ from eazzu.tools import shell, files, net_tools, trade_tools, dev_tools, researc
 from eazzu.tools import advanced_tools, agent_tools, alert_dispatcher, expanded_tools
 from eazzu.tools import music_tools, web_tools, deriv_tools, image_tools
 from eazzu.tools import advanced_music_tools
+from eazzu.tools import mcp_tools, code_tools, artifact_tools, research_tools_v2
+from eazzu.tools import memory_tools
 
 REGISTRY: list[dict] = [
     *shell.TOOLS,
@@ -22,6 +24,11 @@ REGISTRY: list[dict] = [
     *deriv_tools.TOOLS,
     *image_tools.TOOLS,
     *advanced_music_tools.TOOLS,
+    *mcp_tools.TOOLS,
+    *code_tools.TOOLS,
+    *artifact_tools.TOOLS,
+    *research_tools_v2.TOOLS,
+    *memory_tools.TOOLS,
 ]
 
 __all__ = ["REGISTRY"]

@@ -1,442 +1,407 @@
-"""Advanced Music Theory Engine — 20 professional music theory functions.
+"""Advanced music tools — extended DSP, composition and production utilities.
 
-Extends Vinny with deeper harmonic analysis, counterpoint, Neo-Riemannian
-transformations, set theory, serialism, and advanced rhythmic generation.
-All pure-Python, stdlib-only.
+Adds granular synthesis, spectral processing, harmonic analysis, advanced
+sequencing, voice-leading, counterpoint, generative algorithms, and a
+lightweight WAV writer. Pure-Python, stdlib-only, iSH-safe.
 """
 from __future__ import annotations
 
 import math
 import random
+import struct
+import wave
 from typing import Any, Dict, List, Optional, Tuple
 
-from eazzu.audio.engine import NOTE_NAMES, SCALES
-
-# ─── Extended scale library ──────────────────────────────────────────────
-
-EXTENDED_SCALES: Dict[str, List[int]] = {
-    "major": [0, 2, 4, 5, 7, 9, 11],
-    "natural_minor": [0, 2, 3, 5, 7, 8, 10],
-    "harmonic_minor": [0, 2, 3, 5, 7, 8, 11],
-    "melodic_minor": [0, 2, 3, 5, 7, 9, 11],
-    "dorian": [0, 2, 3, 5, 7, 9, 10],
-    "phrygian": [0, 1, 3, 5, 7, 8, 10],
-    "lydian": [0, 2, 4, 6, 7, 9, 11],
-    "mixolydian": [0, 2, 4, 5, 7, 9, 10],
-    "locrian": [0, 1, 3, 5, 6, 8, 10],
-    "pentatonic_major": [0, 2, 4, 7, 9],
-    "pentatonic_minor": [0, 3, 5, 7, 10],
-    "blues": [0, 3, 5, 6, 7, 10],
-    "whole_tone": [0, 2, 4, 6, 8, 10],
-    "diminished": [0, 2, 3, 5, 6, 8, 9, 11],
-    "augmented": [0, 3, 4, 7, 8, 11],
-    "bebop_major": [0, 2, 4, 5, 7, 9, 10, 11],
-    "bebop_dorian": [0, 2, 3, 4, 5, 7, 9, 10],
-    "bebop_mixolydian": [0, 2, 4, 5, 7, 9, 10, 11],
-    "hungarian_minor": [0, 2, 3, 6, 7, 8, 11],
-    "byzantine": [0, 1, 4, 5, 7, 8, 11],
-    "enigmatic": [0, 1, 4, 6, 8, 10, 11],
-    "persian": [0, 1, 4, 5, 6, 8, 11],
-    "hirajoshi": [0, 2, 3, 7, 8],
-    "in_sen": [0, 1, 5, 7, 10],
-    "iwato": [0, 1, 5, 6, 10],
-}
-
-# ─── Chord library ───────────────────────────────────────────────────────
-
-CHORD_FORMULAS: Dict[str, List[int]] = {
-    "maj": [0, 4, 7], "min": [0, 3, 7], "dim": [0, 3, 6],
-    "aug": [0, 4, 8], "sus2": [0, 2, 7], "sus4": [0, 5, 7],
-    "maj7": [0, 4, 7, 11], "min7": [0, 3, 7, 10], "7": [0, 4, 7, 10],
-    "dim7": [0, 3, 6, 9], "m7b5": [0, 3, 6, 10], "maj9": [0, 4, 7, 11, 14],
-    "min9": [0, 3, 7, 10, 14], "9": [0, 4, 7, 10, 14], "7b9": [0, 4, 7, 10, 13],
-    "7#9": [0, 4, 7, 10, 15], "6": [0, 4, 7, 9], "m6": [0, 3, 7, 9],
-    "add9": [0, 4, 7, 14], "6/9": [0, 4, 7, 9, 14], "maj11": [0, 4, 7, 11, 14, 17],
-    "min11": [0, 3, 7, 10, 14, 17], "11": [0, 4, 7, 10, 14, 17],
-    "maj13": [0, 4, 7, 11, 14, 17, 21], "min13": [0, 3, 7, 10, 14, 17, 21],
-    "13": [0, 4, 7, 10, 14, 17, 21], "lydian_dominant": [0, 4, 7, 10, 14, 18],
-}
-
-# ─── Functions ──────────────────────────────────────────────────────────
+from eazzu.audio.engine import NOTE_NAMES, SCALES, note_to_freq
 
 
-def list_all_scales() -> Dict[str, Any]:
-    """List all available scales with their interval formulas."""
-    return {"scales": {name: {"intervals": iv, "notes": len(iv)} for name, iv in EXTENDED_SCALES.items()}}
+def _error(code: str, exc: Exception) -> Dict[str, Any]:
+    return {"error": code, "message": str(exc)}
 
 
-def list_all_chords() -> Dict[str, Any]:
-    """List all available chord types with their interval formulas."""
-    return {"chords": {name: {"intervals": iv, "notes": len(iv)} for name, iv in CHORD_FORMULAS.items()}}
+# ─── Granular synthesis ─────────────────────────────────────────────────
+
+def granular_synthesize(samples: List[float], grain_size: float = 0.05,
+                        density: float = 20.0, pitch: float = 1.0,
+                        spread: float = 0.5, position: float = 0.0,
+                        jitter: float = 0.1, duration: float = 2.0,
+                        sample_rate: int = 44100) -> Dict[str, Any]:
+    try:
+        n = int(duration * sample_rate)
+        out = [0.0] * n
+        bl = len(samples)
+        if bl == 0:
+            return {"samples": [], "grains": 0}
+        gs = max(1, int(grain_size * sample_rate))
+        gc = int(duration * density)
+        for g in range(gc):
+            start = int((g / max(density, 1)) * sample_rate)
+            pos = int(position * bl) + random.randint(-int(jitter * bl * 0.1), int(jitter * bl * 0.1))
+            for i in range(gs):
+                src = int((pos + i * pitch) % bl)
+                env = math.sin(math.pi * i / gs)
+                if 0 <= start + i < n:
+                    out[start + i] += samples[src] * env * spread
+        peak = max(abs(x) for x in out) or 1.0
+        out = [x / max(peak, 1e-9) * 0.9 for x in out]
+        return {"samples": out, "grains": gc, "duration": duration}
+    except Exception as exc:
+        return _error("granular_failed", exc)
 
 
-def build_chord(root: str, chord_type: str = "maj", octave: int = 4) -> Dict[str, Any]:
-    """Build a chord from a root note name and chord type."""
-    if root not in NOTE_NAMES:
-        return {"error": f"unknown root: {root}"}
-    if chord_type not in CHORD_FORMULAS:
-        return {"error": f"unknown chord type: {chord_type}"}
-    root_idx = NOTE_NAMES.index(root)
-    intervals = CHORD_FORMULAS[chord_type]
-    midi_notes = [root_idx + iv + octave * 12 for iv in intervals]
-    note_names = [NOTE_NAMES[n % 12] for n in midi_notes]
-    return {
-        "root": root, "type": chord_type, "octave": octave,
-        "midi_notes": midi_notes, "note_names": note_names,
-        "frequencies": [440.0 * 2 ** ((n - 69) / 12) for n in midi_notes],
-    }
+# ─── Spectral processing ────────────────────────────────────────────────
+
+def spectral_dft(samples: List[float], sample_rate: int = 44100,
+                  max_bins: int = 256) -> Dict[str, Any]:
+    try:
+        n = min(len(samples), 2048)
+        if n == 0:
+            return {"frequencies": [], "magnitudes": [], "peak_freq": 0, "centroid": 0}
+        mags = [0.0] * (n // 2)
+        for k in range(n // 2):
+            re = sum(samples[j] * math.cos(-2 * math.pi * k * j / n) for j in range(n))
+            im = sum(samples[j] * math.sin(-2 * math.pi * k * j / n) for j in range(n))
+            mags[k] = math.sqrt(re * re + im * im)
+        freqs = [k * sample_rate / n for k in range(n // 2)]
+        peak_idx = max(range(n // 2), key=lambda i: mags[i])
+        total = sum(mags) or 1.0
+        centroid = sum(f * m for f, m in zip(freqs, mags)) / total
+        return {
+            "frequencies": freqs[:max_bins],
+            "magnitudes": mags[:max_bins],
+            "peak_freq": freqs[peak_idx],
+            "centroid": centroid,
+            "spread": math.sqrt(sum(((f - centroid) ** 2) * m for f, m in zip(freqs, mags)) / total),
+        }
+    except Exception as exc:
+        return _error("dft_failed", exc)
 
 
-def analyze_chord(notes: List[int]) -> Dict[str, Any]:
-    """Analyze a collection of MIDI notes and identify the chord."""
-    if not notes:
-        return {"error": "no_notes"}
-    pitch_classes = sorted(set(n % 12 for n in notes))
-    best_match = None
-    best_score = -1
-    for root_pc in pitch_classes:
-        normalized = sorted(set((n - root_pc) % 12 for n in notes))
-        for name, formula in CHORD_FORMULAS.items():
-            formula_set = set(iv % 12 for iv in formula)
-            note_set = set(normalized)
-            score = len(formula_set & note_set) - len(note_set - formula_set) * 0.5
-            if score > best_score:
-                best_score = score
-                best_match = {"root_pc": root_pc, "root": NOTE_NAMES[root_pc], "type": name, "score": score}
-    return {
-        "input_notes": notes,
-        "pitch_classes": pitch_classes,
-        "pitch_class_names": [NOTE_NAMES[pc] for pc in pitch_classes],
-        "best_match": best_match,
-    }
+def spectral_freeze(samples: List[float], freeze: float = 0.8,
+                    sample_rate: int = 44100) -> Dict[str, Any]:
+    try:
+        n = min(len(samples), 2048)
+        if n == 0:
+            return {"samples": []}
+        mags = [0.0] * (n // 2)
+        phases = [0.0] * (n // 2)
+        for k in range(n // 2):
+            re = sum(samples[j] * math.cos(-2 * math.pi * k * j / n) for j in range(n))
+            im = sum(samples[j] * math.sin(-2 * math.pi * k * j / n) for j in range(n))
+            mags[k] = math.sqrt(re * re + im * im)
+            phases[k] = math.atan2(im, re)
+        out_len = len(samples)
+        out = [0.0] * out_len
+        for i in range(out_len):
+            s = 0.0
+            for k in range(min(n // 2, 64)):
+                s += mags[k] * math.cos(2 * math.pi * k * i / n + phases[k])
+            out[i] = s * freeze / (n // 2)
+        return {"samples": out, "frozen": True}
+    except Exception as exc:
+        return _error("freeze_failed", exc)
 
 
-def get_scale_notes(key: str, scale_name: str = "major", octaves: int = 2) -> Dict[str, Any]:
-    """Get all notes in a scale across N octaves."""
-    if key not in NOTE_NAMES:
-        return {"error": f"unknown key: {key}"}
-    scale = EXTENDED_SCALES.get(scale_name) or SCALES.get(scale_name)
-    if not scale:
-        return {"error": f"unknown scale: {scale_name}"}
-    root_idx = NOTE_NAMES.index(key)
-    notes = []
-    for o in range(octaves):
-        for iv in scale:
-            midi = root_idx + iv + o * 12
-            notes.append({"midi": midi, "name": NOTE_NAMES[midi % 12], "octave": o})
-    return {"key": key, "scale": scale_name, "notes": notes}
+# ─── Harmonic analysis ──────────────────────────────────────────────────
+
+def harmonic_analysis(samples: List[float], fundamental: float = 440.0,
+                      sample_rate: int = 44100, harmonics: int = 16) -> Dict[str, Any]:
+    try:
+        n = len(samples)
+        if n == 0:
+            return {"harmonics": []}
+        amps = []
+        for h in range(1, harmonics + 1):
+            freq = fundamental * h
+            if freq >= sample_rate / 2:
+                break
+            re = sum(samples[j] * math.cos(-2 * math.pi * freq * j / sample_rate) for j in range(n))
+            im = sum(samples[j] * math.sin(-2 * math.pi * freq * j / sample_rate) for j in range(n))
+            amps.append({"harmonic": h, "frequency": round(freq, 2),
+                         "amplitude": round(math.sqrt(re * re + im * im) / n, 6)})
+        total = sum(a["amplitude"] for a in amps) or 1.0
+        for a in amps:
+            a["ratio"] = round(a["amplitude"] / total, 4)
+        return {"fundamental": fundamental, "harmonics": amps}
+    except Exception as exc:
+        return _error("harmonic_failed", exc)
 
 
-def diatonic_chords(key: str, scale_name: str = "major") -> Dict[str, Any]:
-    """Generate diatonic triads and sevenths for a scale."""
-    scale = EXTENDED_SCALES.get(scale_name) or SCALES.get(scale_name)
-    if not scale:
-        return {"error": f"unknown scale: {scale_name}"}
-    if key not in NOTE_NAMES:
-        return {"error": f"unknown key: {key}"}
-    root_idx = NOTE_NAMES.index(key)
-    triads = []
-    sevenths = []
-    for degree in range(len(scale)):
-        root_pc = (root_idx + scale[degree]) % 12
-        third = (root_idx + scale[(degree + 2) % len(scale)] + 12 * ((degree + 2) >= len(scale))) % 12
-        fifth = (root_idx + scale[(degree + 4) % len(scale)] + 12 * ((degree + 4) >= len(scale))) % 12
-        seventh = (root_idx + scale[(degree + 6) % len(scale)] + 12 * ((degree + 6) >= len(scale))) % 12
-        third_iv = (third - root_pc) % 12
-        fifth_iv = (fifth - root_pc) % 12
-        seventh_iv = (seventh - root_pc) % 12
-        if third_iv == 4 and fifth_iv == 7:
-            triad_type = "maj"
-        elif third_iv == 3 and fifth_iv == 7:
-            triad_type = "min"
-        elif third_iv == 3 and fifth_iv == 6:
-            triad_type = "dim"
-        elif third_iv == 4 and fifth_iv == 8:
-            triad_type = "aug"
-        else:
-            triad_type = "other"
-        if seventh_iv == 11:
-            seventh_type = triad_type + "7" if triad_type == "maj" else "maj7"
-        elif seventh_iv == 10:
-            seventh_type = triad_type + "7" if triad_type in ("maj", "min") else "7"
-        elif seventh_iv == 9:
-            seventh_type = "dim7" if triad_type == "dim" else "m7b5"
-        else:
-            seventh_type = triad_type + "7"
-        triads.append({"degree": degree + 1, "root": NOTE_NAMES[root_pc], "type": triad_type})
-        sevenths.append({"degree": degree + 1, "root": NOTE_NAMES[root_pc], "type": seventh_type})
-    return {"key": key, "scale": scale_name, "triads": triads, "sevenths": sevenths}
+def detect_pitch_autocorrelation(samples: List[float], sample_rate: int = 44100,
+                                 min_freq: float = 80.0, max_freq: float = 1000.0) -> Dict[str, Any]:
+    try:
+        n = len(samples)
+        if n < 256:
+            return {"pitch": 0, "note": None, "confidence": 0}
+        min_lag = int(sample_rate / max_freq)
+        max_lag = int(sample_rate / min_freq)
+        max_lag = min(max_lag, n // 2)
+        best_lag, best_corr = 0, 0.0
+        for lag in range(min_lag, max_lag):
+            corr = sum(samples[i] * samples[i + lag] for i in range(n - max_lag))
+            if corr > best_corr:
+                best_corr, best_lag = corr, lag
+        if best_lag == 0:
+            return {"pitch": 0, "note": None, "confidence": 0}
+        pitch = sample_rate / best_lag
+        midi = round(69 + 12 * math.log2(pitch / 440.0))
+        note = NOTE_NAMES[midi % 12] + str(midi // 12 - 1)
+        return {"pitch": round(pitch, 2), "note": note, "midi": midi,
+                "confidence": round(min(1.0, best_corr / (sum(s * s for s in samples[:n - max_lag]) or 1)), 3)}
+    except Exception as exc:
+        return _error("pitch_failed", exc)
 
 
-def roman_numeral_analysis(key: str, scale_name: str, chord_root: str, chord_type: str) -> Dict[str, Any]:
-    """Determine the Roman numeral for a chord within a key."""
-    scale = EXTENDED_SCALES.get(scale_name) or SCALES.get(scale_name)
-    if not scale or key not in NOTE_NAMES or chord_root not in NOTE_NAMES:
-        return {"error": "invalid input"}
-    root_idx = NOTE_NAMES.index(key)
-    chord_idx = NOTE_NAMES.index(chord_root)
-    scale_pcs = [(root_idx + iv) % 12 for iv in scale]
-    if chord_idx not in scale_pcs:
-        return {"error": "chord_root not in scale"}
-    degree = scale_pcs.index(chord_idx) + 1
-    roman = ["I", "II", "III", "IV", "V", "VI", "VII"][degree - 1]
-    is_minor = chord_type in ("min", "min7", "m7b5", "dim", "dim7")
-    is_dim = chord_type in ("dim", "dim7", "m7b5")
-    if is_dim:
-        roman = roman.lower() + "°"
-    elif is_minor:
-        roman = roman.lower()
-    return {"key": key, "scale": scale_name, "chord": f"{chord_root}{chord_type}", "roman_numeral": roman, "degree": degree}
+# ─── Advanced composition ───────────────────────────────────────────────
 
-
-def secondary_dominant(key: str, scale_name: str, target_degree: int) -> Dict[str, Any]:
-    """Find the secondary dominant (V/X) for a target scale degree."""
-    scale = EXTENDED_SCALES.get(scale_name) or SCALES.get(scale_name)
-    if not scale or key not in NOTE_NAMES:
-        return {"error": "invalid input"}
-    root_idx = NOTE_NAMES.index(key)
-    if target_degree < 1 or target_degree > len(scale):
-        return {"error": "invalid degree"}
-    target_pc = (root_idx + scale[target_degree - 1]) % 12
-    dom_pc = (target_pc + 7) % 12
-    return {
-        "key": key, "target_degree": target_degree, "target_chord": NOTE_NAMES[target_pc],
-        "secondary_dominant": NOTE_NAMES[dom_pc], "secondary_dominant_type": "7",
-    }
-
-
-def chord_progression_analyzer(progression: List[Dict[str, str]]) -> Dict[str, Any]:
-    """Analyze a chord progression for harmonic function, movement, and quality."""
-    functions = []
-    for i, chord in enumerate(progression):
-        root = chord.get("root", "")
-        ctype = chord.get("type", "maj")
-        if i == 0:
-            function = "tonic"
-        elif ctype in ("7", "9", "13"):
-            function = "dominant" if root in ("G", "D", "A", "E") else "subdominant"
-        elif ctype in ("min", "min7"):
-            function = "submediant" if root in ("A", "E") else "subdominant"
-        elif ctype in ("dim", "dim7"):
-            function = "leading_tone"
-        else:
-            function = "subdominant" if root in ("F", "B") else "tonic"
-        functions.append({"chord": f"{root}{ctype}", "function": function})
-    movements = []
-    for i in range(1, len(progression)):
-        prev = progression[i - 1].get("root", "")
-        curr = progression[i].get("root", "")
-        if prev and curr and prev in NOTE_NAMES and curr in NOTE_NAMES:
-            interval = (NOTE_NAMES.index(curr) - NOTE_NAMES.index(prev)) % 12
-            direction = "up" if interval <= 6 else "down"
-            movements.append({"from": prev, "to": curr, "interval": interval, "direction": direction})
-    return {
-        "progression": [f"{c.get('root','')}{c.get('type','maj')}" for c in progression],
-        "functions": functions,
-        "movements": movements,
-        "length": len(progression),
-    }
-
-
-def neo_riemannian_transform(chord_root: str, chord_type: str, transform: str = "P") -> Dict[str, Any]:
-    """Apply a Neo-Riemannian transformation (P, R, L) to a chord.
-
-    P = Parallel (maj↔min same root), R = Relative (maj→vi, min→III),
-    L = Leading-tone exchange (maj→V of vi, min→IV of III).
-    """
-    if chord_root not in NOTE_NAMES:
-        return {"error": "invalid root"}
-    root_idx = NOTE_NAMES.index(chord_root)
-    if transform == "P":
-        new_type = "min" if chord_type == "maj" else "maj" if chord_type == "min" else chord_type
-        new_root = chord_root
-    elif transform == "R":
-        if chord_type == "maj":
-            new_root = NOTE_NAMES[(root_idx + 9) % 12]
-            new_type = "min"
-        elif chord_type == "min":
-            new_root = NOTE_NAMES[(root_idx + 3) % 12]
-            new_type = "maj"
-        else:
-            new_root, new_type = chord_root, chord_type
-    elif transform == "L":
-        if chord_type == "maj":
-            new_root = NOTE_NAMES[(root_idx + 4) % 12]
-            new_type = "min"
-        elif chord_type == "min":
-            new_root = NOTE_NAMES[(root_idx + 8) % 12]
-            new_type = "maj"
-        else:
-            new_root, new_type = chord_root, chord_type
-    else:
-        return {"error": f"unknown transform: {transform} (use P, R, or L)"}
-    return {"original": f"{chord_root}{chord_type}", "transform": transform, "result": f"{new_root}{new_type}",
-            "new_root": new_root, "new_type": new_type}
-
-
-def interval_matrix(notes: List[int]) -> Dict[str, Any]:
-    """Compute the interval matrix (all pairwise intervals) for a set of notes."""
-    if not notes:
-        return {"error": "no_notes"}
-    pcs = sorted(set(n % 12 for n in notes))
-    matrix = []
-    for a in pcs:
-        row = [(b - a) % 12 for b in pcs]
-        matrix.append(row)
-    return {"pitch_classes": pcs, "names": [NOTE_NAMES[pc] for pc in pcs], "matrix": matrix}
-
-
-def forte_set_class(notes: List[int]) -> Dict[str, Any]:
-    """Compute the Forte set class (prime form) for a collection of pitch classes."""
-    pcs = sorted(set(n % 12 for n in notes))
-    if not pcs:
-        return {"error": "no_notes"}
-    n = len(pcs)
-    rotations = []
-    for i in range(n):
-        rotated = sorted((pc - pcs[i]) % 12 for pc in pcs)
-        rotations.append(rotated)
-    inversions = [sorted((12 - iv) % 12 for iv in r) for r in rotations]
-    inversions = [[v - min(inv) for v in inv] for inv in inversions]
-    candidates = rotations + inversions
-    prime = min(candidates)
-    return {"input_pcs": pcs, "prime_form": prime, "cardinality": n}
-
-
-def twelve_tone_row(start_pc: int = 0) -> Dict[str, Any]:
-    """Generate a random twelve-tone row (serialism) starting at a given pitch class."""
-    pcs = list(range(12))
-    pcs.remove(start_pc)
-    random.shuffle(pcs)
-    row = [start_pc] + pcs
-    return {"row": row, "names": [NOTE_NAMES[pc] for pc in row]}
-
-
-def retrograde(row: List[int]) -> Dict[str, Any]:
-    """Return the retrograde (reverse) of a tone row."""
-    return {"original": row, "retrograde": list(reversed(row))}
-
-
-def inversion(row: List[int], axis: int = 0) -> Dict[str, Any]:
-    """Return the inversion of a tone row around a given axis."""
-    return {"original": row, "inversion": [(axis * 2 - n) % 12 for n in row]}
-
-
-def retrograde_inversion(row: List[int], axis: int = 0) -> Dict[str, Any]:
-    """Return the retrograde inversion of a tone row."""
-    inv = [(axis * 2 - n) % 12 for n in row]
-    return {"original": row, "retrograde_inversion": list(reversed(inv))}
-
-
-def polyrhythm_generator(pulses: List[int], steps: int = 16) -> Dict[str, Any]:
-    """Generate polyrhythmic patterns for multiple pulse counts."""
-    patterns = []
-    for p in pulses:
-        pattern = [i % p == 0 for i in range(steps)]
-        patterns.append({"pulse": p, "pattern": pattern})
-    return {"steps": steps, "patterns": patterns}
-
-
-def cross_rhythm(base: int, cross: int, steps: int = 16) -> Dict[str, Any]:
-    """Generate a cross-rhythm (e.g., 3 against 4) as boolean patterns."""
-    base_pat = [i % base == 0 for i in range(steps)]
-    cross_pat = [i % cross == 0 for i in range(steps)]
-    coincidences = [a and b for a, b in zip(base_pat, cross_pat)]
-    return {"base": base, "cross": cross, "base_pattern": base_pat, "cross_pattern": cross_pat,
-            "coincidences": coincidences, "coincidence_count": sum(coincidences)}
-
-
-def harmonic_field(key: str, scale_name: str = "major") -> Dict[str, Any]:
-    """Generate the complete harmonic field: triads, sevenths, and extensions for every degree."""
-    scale = EXTENDED_SCALES.get(scale_name) or SCALES.get(scale_name)
-    if not scale or key not in NOTE_NAMES:
-        return {"error": "invalid input"}
-    root_idx = NOTE_NAMES.index(key)
-    field = []
-    for degree in range(len(scale)):
-        root_pc = (root_idx + scale[degree]) % 12
-        chord_pcs = [(root_idx + scale[(degree + 2 * k) % len(scale)] + 12 * ((degree + 2 * k) >= len(scale))) % 12
-                     for k in range(1, 5)]
-        field.append({
-            "degree": degree + 1,
-            "root": NOTE_NAMES[root_pc],
-            "third": NOTE_NAMES[chord_pcs[0]],
-            "fifth": NOTE_NAMES[chord_pcs[1]],
-            "seventh": NOTE_NAMES[chord_pcs[2]],
-            "ninth": NOTE_NAMES[chord_pcs[3]],
-        })
-    return {"key": key, "scale": scale_name, "harmonic_field": field}
-
-
-def voice_leading(from_chord: List[int], to_chord: List[int]) -> Dict[str, Any]:
-    """Compute optimal voice leading between two chords (minimize total movement)."""
-    if not from_chord or not to_chord:
-        return {"error": "no_notes"}
-    mapping = []
-    used = set()
-    for fn in from_chord:
-        best_tn = None
-        best_d = 999
-        best_j = 0
-        for j, tn in enumerate(to_chord):
-            if j in used:
+def generate_counterpoint(melody: List[int], species: int = 1,
+                          key: str = "C", scale_type: str = "major") -> Dict[str, Any]:
+    try:
+        scale = SCALES.get(scale_type, SCALES["major"])
+        ki = NOTE_NAMES.index(key) if key in NOTE_NAMES else 0
+        intervals = [3, 5, 6, 8]
+        cp = []
+        for n in melody:
+            if n < 0:
+                cp.append(-1)
                 continue
-            d = abs(fn - tn)
-            if d < best_d:
-                best_d = d
-                best_tn = tn
-                best_j = j
-        if best_tn is not None:
-            mapping.append({"from": fn, "to": best_tn, "distance": best_d})
-            used.add(best_j)
-    total = sum(m["distance"] for m in mapping)
-    return {"from_chord": from_chord, "to_chord": to_chord, "mapping": mapping, "total_movement": total}
+            choice = n + random.choice(intervals)
+            while (choice - ki) % 12 not in [s % 12 for s in scale] and random.random() > 0.2:
+                choice = n + random.choice(intervals)
+            cp.append(max(0, min(127, choice)))
+        return {"counterpoint": cp, "species": species, "key": key, "scale": scale_type}
+    except Exception as exc:
+        return _error("counterpoint_failed", exc)
 
 
-def counterpoint_species1(cantus: List[int]) -> Dict[str, Any]:
-    """Generate a first-species counterpoint line above a given cantus firmus."""
-    if not cantus:
-        return {"error": "no_cantus"}
-    consonant = [0, 3, 5, 7, 8, 10, 12]
-    cp = []
-    for i, note in enumerate(cantus):
-        if i == 0 or i == len(cantus) - 1:
-            cp.append(note + 12)
+def generate_fugue(subject: List[int], key: str = "C", scale_type: str = "major",
+                   voices: int = 4, entries: int = 4) -> Dict[str, Any]:
+    try:
+        answer = [(n + 7) % 12 + (n // 12) * 12 if n >= 0 else -1 for n in subject]
+        parts: List[List[int]] = [[] for _ in range(voices)]
+        for e in range(entries):
+            v = e % voices
+            line = subject if e % 2 == 0 else answer
+            transpose = (e // 2) * 12
+            for n in line:
+                parts[v].append(max(0, min(127, n + transpose)) if n >= 0 else -1)
+        return {"subject": subject, "answer": answer, "voices": parts, "key": key}
+    except Exception as exc:
+        return _error("fugue_failed", exc)
+
+
+def markov_melody(seed_notes: List[int], length: int = 32, order: int = 2) -> Dict[str, Any]:
+    try:
+        if not seed_notes:
+            return {"melody": []}
+        transitions: Dict[Tuple[int, ...], List[int]] = {}
+        for i in range(len(seed_notes) - order):
+            key = tuple(seed_notes[i:i + order])
+            transitions.setdefault(key, []).append(seed_notes[i + order])
+        melody = list(seed_notes[:order])
+        for _ in range(length - order):
+            key = tuple(melody[-order:])
+            opts = transitions.get(key)
+            melody.append(random.choice(opts) if opts else random.choice(seed_notes))
+        return {"melody": melody, "order": order, "length": len(melody)}
+    except Exception as exc:
+        return _error("markov_failed", exc)
+
+
+def generate_scales_full() -> Dict[str, Any]:
+    return {"scales": {name: list(iv) for name, iv in SCALES.items()}}
+
+
+def chord_voicing(chord: List[int], voicing: str = "close") -> Dict[str, Any]:
+    try:
+        if not chord:
+            return {"voicing": []}
+        c = sorted(chord)
+        if voicing == "close":
+            v = list(c)
+        elif voicing == "drop2":
+            v = list(c)
+            if len(v) >= 4:
+                v[-2] -= 12
+        elif voicing == "drop3":
+            v = list(c)
+            if len(v) >= 4:
+                v[-3] -= 12
+        elif voicing == "open":
+            v = [c[0], c[-1]] + [n + 12 for n in c[1:-1]]
+        elif voicing == "spread":
+            v = []
+            for i, n in enumerate(c):
+                v.append(n + (12 if i % 2 else 0))
         else:
-            choices = [note + iv for iv in consonant if 0 <= note + iv <= 127]
-            cp.append(random.choice(choices) if choices else note + 12)
-    return {"cantus": cantus, "counterpoint": cp, "species": 1}
+            v = list(c)
+        return {"voicing": sorted(v), "type": voicing}
+    except Exception as exc:
+        return _error("voicing_failed", exc)
 
 
-def circle_of_fifths() -> Dict[str, Any]:
-    """Return the circle of fifths with key signatures and relative minors."""
-    fifths = []
-    for i in range(12):
-        pc = (i * 7) % 12
-        rel_minor = (pc + 9) % 12
-        fifths.append({
-            "position": i,
-            "major_key": NOTE_NAMES[pc],
-            "relative_minor": NOTE_NAMES[rel_minor],
-            "sharps": i if i <= 6 else 0,
-            "flats": (12 - i) % 12 if i > 6 else 0,
-        })
-    return {"circle": fifths}
+# ─── WAV writer ──────────────────────────────────────────────────────────
+
+def write_wav(samples: List[float], path: str, sample_rate: int = 44100,
+              normalize: bool = True) -> Dict[str, Any]:
+    try:
+        if normalize and samples:
+            peak = max(abs(x) for x in samples) or 1.0
+            samples = [x / peak * 0.95 for x in samples]
+        with wave.open(path, "w") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(sample_rate)
+            frames = b"".join(struct.pack("<h", int(max(-1, min(1, s)) * 32767)) for s in samples)
+            w.writeframes(frames)
+        return {"path": path, "samples": len(samples), "sample_rate": sample_rate}
+    except Exception as exc:
+        return _error("wav_failed", exc)
 
 
-def modulation_path(from_key: str, to_key: str) -> Dict[str, Any]:
-    """Suggest a modulation path between two keys via common chords."""
-    if from_key not in NOTE_NAMES or to_key not in NOTE_NAMES:
-        return {"error": "invalid key"}
-    from_idx = NOTE_NAMES.index(from_key)
-    to_idx = NOTE_NAMES.index(to_key)
-    distance = abs(to_idx - from_idx) % 12
-    min_dist = min(distance, 12 - distance)
-    pivot_chords = []
-    for i in range(7):
-        from_pc = (from_idx + [0, 2, 4, 5, 7, 9, 11][i]) % 12
-        for j in range(7):
-            to_pc = (to_idx + [0, 2, 4, 5, 7, 9, 11][j]) % 12
-            if from_pc == to_pc:
-                pivot_chords.append({"chord": NOTE_NAMES[from_pc], "from_degree": i + 1, "to_degree": j + 1})
-    return {"from_key": from_key, "to_key": to_key, "distance_semitones": min_dist, "pivot_chords": pivot_chords[:5]}
+# ─── Advanced effects ───────────────────────────────────────────────────
+
+def _one_pole_lowpass(samples: List[float], cutoff: float = 0.5) -> List[float]:
+    out = [0.0] * len(samples)
+    a = 1 - cutoff
+    out[0] = samples[0] * cutoff
+    for i in range(1, len(samples)):
+        out[i] = out[i - 1] * a + samples[i] * cutoff
+    return out
+
+
+def apply_distortion(samples: List[float], drive: float = 0.5,
+                     tone: float = 0.5, mix: float = 1.0) -> Dict[str, Any]:
+    try:
+        k = 1 + drive * 10
+        out = [math.tanh(s * k) * 0.8 for s in samples]
+        if tone < 0.5:
+            out = _one_pole_lowpass(out, 1.0 - tone)
+        return {"samples": [d * (1 - mix) + w * mix for d, w in zip(samples, out)]}
+    except Exception as exc:
+        return _error("distortion_failed", exc)
+
+
+def apply_chorus(samples: List[float], rate: float = 1.5, depth: float = 0.3,
+                 mix: float = 0.5, sample_rate: int = 44100) -> Dict[str, Any]:
+    try:
+        n = len(samples)
+        out = [0.0] * n
+        max_delay = int(0.05 * sample_rate)
+        buf = [0.0] * max_delay
+        idx = 0
+        for i in range(n):
+            delay = int((0.02 + depth * 0.02 * math.sin(2 * math.pi * rate * i / sample_rate)) * sample_rate)
+            delay = min(max_delay - 1, max(0, delay))
+            buf[idx] = samples[i]
+            read = (idx - delay) % max_delay
+            out[i] = samples[i] * (1 - mix) + buf[read] * mix
+            idx = (idx + 1) % max_delay
+        return {"samples": out}
+    except Exception as exc:
+        return _error("chorus_failed", exc)
+
+
+def apply_compressor(samples: List[float], threshold: float = -18.0,
+                     ratio: float = 4.0, attack: float = 0.003,
+                     release: float = 0.1, makeup: float = 0.0,
+                     sample_rate: int = 44100) -> Dict[str, Any]:
+    try:
+        thr = 10 ** (threshold / 20)
+        a_coef = math.exp(-1 / (attack * sample_rate))
+        r_coef = math.exp(-1 / (release * sample_rate))
+        env = 0.0
+        gain = 1.0
+        out = [0.0] * len(samples)
+        for i, s in enumerate(samples):
+            x = abs(s)
+            if x > env:
+                env = a_coef * env + (1 - a_coef) * x
+            else:
+                env = r_coef * env + (1 - r_coef) * x
+            if env > thr:
+                gain = (env / thr) ** (1 / ratio - 1)
+            else:
+                gain = 1.0
+            out[i] = s * gain * (10 ** (makeup / 20))
+        return {"samples": out}
+    except Exception as exc:
+        return _error("compressor_failed", exc)
+
+
+# ─── Advanced sequencing ────────────────────────────────────────────────
+
+def generate_polyrhythm(patterns: List[int], steps: int = 16) -> Dict[str, Any]:
+    try:
+        tracks = []
+        for pulses in patterns:
+            track = []
+            bucket = 0.0
+            for i in range(steps):
+                bucket += pulses
+                if bucket >= steps:
+                    track.append(True)
+                    bucket -= steps
+                else:
+                    track.append(False)
+            tracks.append(track)
+        return {"tracks": tracks, "steps": steps, "patterns": patterns}
+    except Exception as exc:
+        return _error("polyrhythm_failed", exc)
+
+
+def swing_quantize(rhythm: List[bool], swing: float = 0.6) -> Dict[str, Any]:
+    try:
+        out = list(rhythm)
+        for i in range(1, len(out), 2):
+            if out[i] and i + 1 < len(out):
+                out[i] = False
+                out[i + 1] = True
+        return {"rhythm": out, "swing": swing}
+    except Exception as exc:
+        return _error("swing_failed", exc)
+
+
+TOOLS = [
+    {"name": "granular_synthesize", "description": "Granular re-synthesis: spawn grains from a source buffer.",
+     "params": {"samples": "array[float]", "grain_size": "float", "density": "float", "pitch": "float",
+                "spread": "float", "position": "float", "jitter": "float", "duration": "float", "sample_rate": "int"},
+     "run": granular_synthesize},
+    {"name": "spectral_dft", "description": "Compute a DFT and return magnitudes, peak frequency and spectral centroid.",
+     "params": {"samples": "array[float]", "sample_rate": "int", "max_bins": "int"}, "run": spectral_dft},
+    {"name": "spectral_freeze", "description": "Freeze the spectral frame of audio and sustain it.",
+     "params": {"samples": "array[float]", "freeze": "float", "sample_rate": "int"}, "run": spectral_freeze},
+    {"name": "harmonic_analysis", "description": "Estimate the amplitude of each harmonic of a fundamental frequency.",
+     "params": {"samples": "array[float]", "fundamental": "float", "sample_rate": "int", "harmonics": "int"},
+     "run": harmonic_analysis},
+    {"name": "detect_pitch_autocorrelation", "description": "Estimate fundamental pitch via autocorrelation.",
+     "params": {"samples": "array[float]", "sample_rate": "int", "min_freq": "float", "max_freq": "float"},
+     "run": detect_pitch_autocorrelation},
+    {"name": "generate_counterpoint", "description": "Generate a species-1 counterpoint line above a melody.",
+     "params": {"melody": "array[int]", "species": "int", "key": "string", "scale_type": "string"},
+     "run": generate_counterpoint},
+    {"name": "generate_fugue", "description": "Generate a fugue skeleton (subject + answer + voices) from a subject.",
+     "params": {"subject": "array[int]", "key": "string", "scale_type": "string", "voices": "int", "entries": "int"},
+     "run": generate_fugue},
+    {"name": "markov_melody", "description": "Generate a melody from a Markov chain trained on seed notes.",
+     "params": {"seed_notes": "array[int]", "length": "int", "order": "int"}, "run": markov_melody},
+    {"name": "generate_scales_full", "description": "Return all available scales and their interval structures.",
+     "params": {}, "run": generate_scales_full},
+    {"name": "chord_voicing", "description": "Voice a chord (close, drop2, drop3, open, spread).",
+     "params": {"chord": "array[int]", "voicing": "string"}, "run": chord_voicing},
+    {"name": "write_wav", "description": "Write 16-bit PCM mono WAV file from float samples.",
+     "params": {"samples": "array[float]", "path": "string", "sample_rate": "int", "normalize": "bool"},
+     "run": write_wav},
+    {"name": "apply_distortion", "description": "Soft-clip distortion (tanh) with tone control.",
+     "params": {"samples": "array[float]", "drive": "float", "tone": "float", "mix": "float"}, "run": apply_distortion},
+    {"name": "apply_chorus", "description": "LFO-modulated delay chorus effect.",
+     "params": {"samples": "array[float]", "rate": "float", "depth": "float", "mix": "float", "sample_rate": "int"},
+     "run": apply_chorus},
+    {"name": "apply_compressor", "description": "Feed-forward compressor with attack/release envelope.",
+     "params": {"samples": "array[float]", "threshold": "float", "ratio": "float", "attack": "float",
+                "release": "float", "makeup": "float", "sample_rate": "int"}, "run": apply_compressor},
+    {"name": "generate_polyrhythm", "description": "Generate a polyrhythm from a list of pulse counts per track.",
+     "params": {"patterns": "array[int]", "steps": "int"}, "run": generate_polyrhythm},
+    {"name": "swing_quantize", "description": "Apply swing to a 16-step rhythm.",
+     "params": {"rhythm": "array[bool]", "swing": "float"}, "run": swing_quantize},
+]

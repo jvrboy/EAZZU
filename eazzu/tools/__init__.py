@@ -10,6 +10,12 @@ from eazzu.tools import memory_tools
 from eazzu.tools import docs_tools, data_tools, slides_tools, notes_tools
 from eazzu.tools import tasks_tools, projects_tools, diagram_tools, workflow_tools
 from eazzu.tools import bi_tools, search_tools, language_tools, accessibility_tools
+from eazzu.tools import media_edit_tools, media_ai_tools, media_creative_tools, media_pro_tools
+from eazzu.tools import media_audio_tools, media_export_tools, media_smart_tools, media_nextgen_tools
+from eazzu.tools import automation_canvas_tools, surveillance_tools, screenshot_tools, screen_record_tools
+from eazzu.tools import daw_tools, three_d_tools, ai_coding_tools, local_ai_tools
+from eazzu.tools import crosscut_tools, pipeline_tools, pipeline_extra_tools
+from eazzu.tools import provider_registry_tools, extra_tools
 
 REGISTRY: list[dict] = [
     *shell.TOOLS,
@@ -44,6 +50,27 @@ REGISTRY: list[dict] = [
     *search_tools.TOOLS,
     *language_tools.TOOLS,
     *accessibility_tools.TOOLS,
+    *media_edit_tools.TOOLS,
+    *media_ai_tools.TOOLS,
+    *media_creative_tools.TOOLS,
+    *media_pro_tools.TOOLS,
+    *media_audio_tools.TOOLS,
+    *media_export_tools.TOOLS,
+    *media_smart_tools.TOOLS,
+    *media_nextgen_tools.TOOLS,
+    *automation_canvas_tools.TOOLS,
+    *surveillance_tools.TOOLS,
+    *screenshot_tools.TOOLS,
+    *screen_record_tools.TOOLS,
+    *daw_tools.TOOLS,
+    *three_d_tools.TOOLS,
+    *ai_coding_tools.TOOLS,
+    *local_ai_tools.TOOLS,
+    *crosscut_tools.TOOLS,
+    *pipeline_tools.TOOLS,
+    *pipeline_extra_tools.TOOLS,
+    *provider_registry_tools.TOOLS,
+    *extra_tools.TOOLS,
 ]
 
 __all__ = ["REGISTRY"]

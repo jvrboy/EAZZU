@@ -1,10 +1,13 @@
 """EAZZU — Unified agentic developer + trading + AI + MCP toolkit.
 
-Combines 50+ tools (Deriv/Forex bots, dev-toolkits, VPN/network utilities,
+Combines 90+ tools (Deriv/Forex bots, dev-toolkits, VPN/network utilities,
 LLM/GGUF runners, deep-research pipelines, media utilities, MCP servers,
-code runner, artifacts, Telegram bot) behind a single CLI (`eazzu`) and an
-agentic chat loop that can invoke every subsystem as a tool. Bring-your-own
-API keys — nothing is hardcoded.
+code runner, artifacts, Telegram bot, plus a full productivity suite:
+document authoring, spreadsheets & analytics, presentations, notes,
+tasks, project management, diagramming, workflow automation, BI,
+search, language, and accessibility) behind a single CLI (`eazzu`) and
+an agentic chat loop that can invoke every subsystem as a tool.
+Bring-your-own API keys — nothing is hardcoded.
 
 Public entry points:
     eazzu.Agent            — the agentic chat + tool-use loop
@@ -23,7 +26,7 @@ CLI:
 """
 from __future__ import annotations
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 __all__ = ["Agent", "get_connector", "tools"]
 
 

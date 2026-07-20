@@ -7,6 +7,9 @@ from eazzu.tools import music_tools, web_tools, deriv_tools, image_tools
 from eazzu.tools import advanced_music_tools
 from eazzu.tools import mcp_tools, code_tools, artifact_tools, research_tools_v2
 from eazzu.tools import memory_tools
+from eazzu.tools import docs_tools, data_tools, slides_tools, notes_tools
+from eazzu.tools import tasks_tools, projects_tools, diagram_tools, workflow_tools
+from eazzu.tools import bi_tools, search_tools, language_tools, accessibility_tools
 
 REGISTRY: list[dict] = [
     *shell.TOOLS,
@@ -29,6 +32,18 @@ REGISTRY: list[dict] = [
     *artifact_tools.TOOLS,
     *research_tools_v2.TOOLS,
     *memory_tools.TOOLS,
+    *docs_tools.TOOLS,
+    *data_tools.TOOLS,
+    *slides_tools.TOOLS,
+    *notes_tools.TOOLS,
+    *tasks_tools.TOOLS,
+    *projects_tools.TOOLS,
+    *diagram_tools.TOOLS,
+    *workflow_tools.TOOLS,
+    *bi_tools.TOOLS,
+    *search_tools.TOOLS,
+    *language_tools.TOOLS,
+    *accessibility_tools.TOOLS,
 ]
 
 __all__ = ["REGISTRY"]

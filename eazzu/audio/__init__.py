@@ -1,9 +1,8 @@
 """EAZZU Audio Suite — converted from infinite-loop-sound's src/lib/audio/.
 
-26 modules covering synthesis, sequencing, mixing, MIDI, sampling, effects,
+24 modules covering synthesis, sequencing, mixing, MIDI, sampling, effects,
 mastering, visualization, stem separation, voice synthesis, pitch/formant
-processing, the Vinny AI music assistant, the Advanced Music Theory Engine,
-and Vinny Pro. All pure-Python, stdlib-only.
+processing, and the Vinny AI music assistant. All pure-Python, stdlib-only.
 """
 from eazzu.audio.engine import (
     AudioEngine, note_to_freq, midi_to_freq, NOTE_NAMES, SCALES, WAVEFORMS,
@@ -36,21 +35,11 @@ from eazzu.audio.vinny_extended import (
     generate_euclidean_rhythm, optimize_voice_leading, generate_song_structure,
 )
 from eazzu.audio.advanced_music import (
-    EXTENDED_SCALES, CHORD_FORMULAS, list_all_scales, list_all_chords,
-    build_chord, analyze_chord, get_scale_notes, diatonic_chords,
-    roman_numeral_analysis, secondary_dominant, chord_progression_analyzer,
-    neo_riemannian_transform, interval_matrix, forte_set_class,
-    twelve_tone_row, retrograde, inversion, retrograde_inversion,
-    polyrhythm_generator, cross_rhythm, harmonic_field, voice_leading,
-    counterpoint_species1, circle_of_fifths, modulation_path,
-)
-from eazzu.audio.vinny_pro import (
-    generate_counter_melody, generate_canon, generate_fugue,
-    generate_chord_melody, generate_walking_bass, generate_ostinato,
-    generate_pad_layer, generate_arp_pattern, generate_drum_fill,
-    generate_song_arrangement, generate_modulation_progression,
-    generate_genre_dna, generate_melody_variation, generate_harmonic_rhythm,
-    generate_intelligent_orchestration,
+    granular_synthesize, spectral_dft, spectral_freeze, harmonic_analysis,
+    detect_pitch_autocorrelation, generate_counterpoint, generate_fugue,
+    markov_melody, generate_scales_full, chord_voicing, write_wav,
+    apply_distortion, apply_chorus, apply_compressor,
+    generate_polyrhythm, swing_quantize,
 )
 
 __all__ = [
@@ -71,19 +60,9 @@ __all__ = [
     "generate_ai_melody", "generate_chord_progression", "generate_drum_pattern",
     "generate_arpeggio", "generate_bass_line", "find_scales", "harmonize",
     "generate_euclidean_rhythm", "optimize_voice_leading", "generate_song_structure",
-    # Advanced Music Theory Engine
-    "EXTENDED_SCALES", "CHORD_FORMULAS", "list_all_scales", "list_all_chords",
-    "build_chord", "analyze_chord", "get_scale_notes", "diatonic_chords",
-    "roman_numeral_analysis", "secondary_dominant", "chord_progression_analyzer",
-    "neo_riemannian_transform", "interval_matrix", "forte_set_class",
-    "twelve_tone_row", "retrograde", "inversion", "retrograde_inversion",
-    "polyrhythm_generator", "cross_rhythm", "harmonic_field", "voice_leading",
-    "counterpoint_species1", "circle_of_fifths", "modulation_path",
-    # Vinny Pro
-    "generate_counter_melody", "generate_canon", "generate_fugue",
-    "generate_chord_melody", "generate_walking_bass", "generate_ostinato",
-    "generate_pad_layer", "generate_arp_pattern", "generate_drum_fill",
-    "generate_song_arrangement", "generate_modulation_progression",
-    "generate_genre_dna", "generate_melody_variation", "generate_harmonic_rhythm",
-    "generate_intelligent_orchestration",
+    "granular_synthesize", "spectral_dft", "spectral_freeze", "harmonic_analysis",
+    "detect_pitch_autocorrelation", "generate_counterpoint", "generate_fugue",
+    "markov_melody", "generate_scales_full", "chord_voicing", "write_wav",
+    "apply_distortion", "apply_chorus", "apply_compressor",
+    "generate_polyrhythm", "swing_quantize",
 ]

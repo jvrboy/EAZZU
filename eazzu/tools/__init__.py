@@ -4,6 +4,7 @@ from __future__ import annotations
 from eazzu.tools import shell, files, net_tools, trade_tools, dev_tools, research_tools
 from eazzu.tools import advanced_tools, agent_tools, alert_dispatcher, expanded_tools
 from eazzu.tools import music_tools, web_tools, deriv_tools, image_tools
+from eazzu.tools import advanced_music_tools
 
 REGISTRY: list[dict] = [
     *shell.TOOLS,
@@ -20,6 +21,7 @@ REGISTRY: list[dict] = [
     *web_tools.TOOLS,
     *deriv_tools.TOOLS,
     *image_tools.TOOLS,
+    *advanced_music_tools.TOOLS,
 ]
 
 __all__ = ["REGISTRY"]

@@ -16,11 +16,20 @@ Deriv/Forex trading strategies — from a laptop or from an iPhone via
  ╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝
 ```
 
-**v1.4.0** — Everything in v1.3 plus a full productivity suite: document
-authoring, spreadsheets & analytics, presentations, notes & wiki, tasks &
-plans, project & portfolio management, diagramming, workflow automation,
-business intelligence & charts, instant-answer search, language & i18n, and
-accessibility tooling — 90+ tools total, all pure-Python and iSH-friendly.
+**v1.5.0** — Everything in v1.4 plus a massive expansion: media editing & AI
+media (crop, filters, adjustments, effects, generative fill, face retouch,
+motion tracking, beat-sync, stabilization), creative & pro media tools
+(layers, masking, color grading, node compositing, scopes), audio tools,
+export & delivery, smart workflow tools, next-gen experimental tools
+(3D reconstruction, avatars, AR, interactive video), visual automation
+canvas with 23 node types, camera/surveillance tools, screenshot & screen
+recording, DAW/music production (30 tools), 3D modeling & AI asset gen
+(22 tools), AI coding assistant (24 tools), local AI model runner (20 tools),
+75 cross-cutting tools (file mgmt, productivity, design, devops, security,
+collaboration, analytics, hardware, learning, voice, gaming), full 14-stage
+app-generation pipeline system + 13 additional domain pipelines, 55+ AI
+provider registry with unlimited multi-key support, and 31 utility tools —
+**400+ tools total**, all pure-Python and iSH-friendly.
 
 ---
 
@@ -30,7 +39,7 @@ accessibility tooling — 90+ tools total, all pure-Python and iSH-friendly.
 | --------------------- | --------------------------------------------- |
 | `eazzu.agent`         | ReAct-style tool-using LLM agent + autonomous loop + persistent memory |
 | `eazzu.providers`     | 80+ AI providers behind one API               |
-| `eazzu.tools`         | 90+ tools: shell, files, net, trade, dev, research, music, web, deriv, image, MCP, code, artifacts, memory + docs, data, slides, notes, tasks, projects, diagrams, workflows, BI, search, language, accessibility |
+| `eazzu.tools`         | 400+ tools: shell, files, net, trade, dev, research, music, web, deriv, image, MCP, code, artifacts, memory + docs, data, slides, notes, tasks, projects, diagrams, workflows, BI, search, language, accessibility + media edit/AI/creative/pro, audio, export, smart, nextgen, automation canvas, surveillance, screenshot, screen record, DAW, 3D, AI coding, local AI, crosscut, pipelines, provider registry, utilities |
 | `eazzu.mcp`           | MCP client framework (HuggingFace, TradingView, MT5, filesystem, fetch, GitHub) |
 | `eazzu.trading`       | Scalpers, signal bots, backtest engines, real-time Deriv API, 22+ advanced indicators |
 | `eazzu.bot`           | Telegram bot interface (long polling, per-user agents) |
@@ -198,7 +207,7 @@ eazzu analyze ./candles.json --indicator vwap
 eazzu analyze ./candles.json --indicator williams --period 14
 eazzu analyze ./candles.json --indicator mfi --period 14
 eazzu analyze ./candles.json --indicator cci --period 20
-eazzu analyze ./candles.json --indicator obv
+ezzu analyze ./candles.json --indicator obv
 eazzu analyze ./candles.json --indicator aroon --period 25
 eazzu analyze ./candles.json --indicator cmo --period 14
 eazzu analyze ./candles.json --indicator trix --period 12
@@ -289,7 +298,7 @@ eazzu trade backtest --strategy deriv_scalper --symbol R_75 --days 30
 
 ## 📝 Productivity suite (v1.4)
 
-Twelve new pure-Python tool modules expose 90+ tools total to the agent.
+Twelve pure-Python tool modules expose 90+ tools to the agent.
 No external runtime required — everything works on iSH/Alpine.
 
 | Module | Tools | What it does |
@@ -309,6 +318,40 @@ No external runtime required — everything works on iSH/Alpine.
 
 All modules follow the existing `TOOLS: list[dict]` convention and are
 registered in `eazzu/tools/__init__.py` automatically.
+
+---
+
+## 🎬 Media & AI media suite (v1.5)
+
+Seventeen new tool modules covering media editing, AI-powered media,
+creative composition, pro video tools, audio, export, smart workflows,
+next-gen experimental tools, automation canvas, surveillance, screenshots,
+screen recording, DAW, 3D modeling, AI coding, local AI, cross-cutting tools,
+pipelines, provider registry, and utilities — 300+ new tools.
+
+| Module | Tools | What it does |
+| ------ | ----- | ------------ |
+| `media_edit_tools` | `media_*` | Crop, filters, adjustments, effects, background removal/change, trim, manipulation, merge, blend, opacity, object removal, texturing |
+| `media_ai_tools` | `ai_*` | Generative fill/replace, text-to-image/video, image-to-video, face retouch/swap, rotoscoping, auto-reframe, motion tracking, speech-to-text, voiceover, lip sync, silence detect, scene detect, beat-sync, Ken Burns, depth map, relight, sky replace, weather effects, time remap, frame interpolate, stabilize, deflicker |
+| `media_creative_tools` | `creative_*` | Layer system, masking, blend-if, vector shapes, text/typography, stickers/GIFs, transitions, split screen, chroma key, duotone, vignette, grain engine |
+| `media_pro_tools` | `pro_*` | Curves/levels, scopes (waveform/vectorscope/RGB parade), match frame, node compositing, proxy workflow, batch processing, presets/templates, version history, collaboration, cloud render |
+| `media_audio_tools` | `audio_*` | Ducking, noise removal, voice enhance, mixer (EQ/compressor/reverb), music generation, SFX library |
+| `media_export_tools` | `export_*` | Multi-format export, platform presets, HDR, bitrate/codec control, watermark, direct publish |
+| `media_smart_tools` | `smart_*` | Prompt-to-edit, auto-edit, highlight reel, content search, emotion tagging, copyright check, accessibility check |
+| `media_nextgen_tools` | `nextgen_*` | 3D reconstruction (NeRF), avatar gen, AR preview, interactive video, multimodal reference, semantic timeline, auto storyboard, style lock |
+| `automation_canvas_tools` | `canvas_*` | 23 node-based automation tools: create canvas, add/connect nodes, conditional branching, data merge, webhook listener, scheduler, error handler, sub-workflows, env manager, version control, approval steps, rate limiter, queue, batch, event bus, marketplace, AI suggest, data transform, idempotency, execution history, cost estimator, workflow-to-API |
+| `surveillance_tools` | `surveillance_*` | 22 camera/surveillance tools: dashboard, motion zones, object filter, face recognition, plate reader, intercom, timeline, storage, streaming, night vision, PTZ, snapshot, privacy mask, alerts, timelapse, access control, relay, AI summary, anomaly detection, health monitor, cross-camera tracking, outdoor mode |
+| `screenshot_tools` | `screenshot_*` | 20 screenshot tools: capture modes, delayed, multi-monitor, annotate, auto-blur, OCR, upload, history, auto-crop, color picker, compare, batch, workspace, clipboard, redact, to-markdown, filename, chained, sticker, perspective |
+| `screen_record_tools` | `record_*` | 21 screen recording tools: start/stop, keystroke viz, green screen, cursor highlight, zoom-follow, trim/split/merge, silence remove, filler cut, chapter markers, transcription, face tracking, multi-scene, region lock, draw/annotate, controls, multi-export, adaptive bitrate, bookmark, caption burn, tutorial converter, face blur |
+| `daw_tools` | `daw_*` | 30 music production tools: timeline, stem separation, chord suggest, key/tempo detect, live loop, MIDI humanize, modular synth, sidechain, pitch correct, time stretch, mixing assistant, mastering, reference match, sample search, drum groove, freeze, comping, video scoring, spatial audio, collaboration, controller map, latency report, sample convert, loop detect, session template, voice-to-instrument, beat slice, granular, spectral edit, noise reduction |
+| `three_d_tools` | `three_d_*` | 22 3D modeling tools: text-to-mesh, image-to-mesh, retopology, UV unwrap, PBR texture, rig, motion retarget, LOD, decimate, voxel-to-mesh, photogrammetry, sculpt, material graph, lighting, turntable, export, physics sim, blendshape, hair groom, terrain, style transfer, to-lineart |
+| `ai_coding_tools` | `code_*` | 24 AI coding tools: repo chat, inline complete, refactor, test gen, bug reproducer, commit msg, PR review, vuln scan, codebase Q&A, migration, dead code, doc gen, regex builder, SQL builder, API mock, agentic runner, sandbox, translate, profiler, complexity score, arch diagram, terminal explain, env setup, snapshot |
+| `local_ai_tools` | `local_ai_*` | 20 local AI tools: download, quantize, dashboard, routing, offline, RAG, prompt profiles, fine-tune, LoRA, prompt library, API endpoint, memory, embeddings, STT/TTS, vision, batch, context summarize, benchmark, model card, update check |
+| `crosscut_tools` | various | 75 cross-cutting tools across 13 categories: file mgmt, productivity, content creation, design, devops, security, collaboration, universal AI, analytics, hardware, learning, voice, gaming |
+| `pipeline_tools` | `pipeline_*` | 32 pipeline tools: 14-stage app generation (intake → delivery), cross-cutting concerns (orchestrator, memory, guardrails, observability, budget, human-loop, retry, versioning, feedback), optional extensions (deploy, app-store, i18n, a11y, monetization, analytics, SEO, marketing), and `pipeline_run_all` |
+| `pipeline_extra_tools` | `pipeline_*` | 13 additional domain pipelines: data analysis, content creation, research, security audit, migration, onboarding, compliance, devops, ML training, customer support, hiring, product launch, incident response |
+| `provider_registry_tools` | `provider_*` | 12 provider registry tools: list 55+ providers, add/remove/rotate/test unlimited API keys per provider, get config, set default, get usage, categories, add custom, health check |
+| `extra_tools` | `extra_*` | 31 utility tools: QR/barcode gen, password gen, UUID gen, hash compute, base64/URL codec, JSON formatter, CSV<->JSON, Markdown<->HTML, color picker, lorem ipsum, chronometer, world clock, unit converter, mortgage/BMI/tip calc, random picker, text diff/stats, slug gen, cron parser, regex tester, ASCII art, morse code, ROT13, binary codec |
 
 ---
 
@@ -340,7 +383,7 @@ No API token required for market data (app_id 1089).
 eazzu deriv ping
 eazzu deriv symbols
 eazzu deriv tick frxEURUSD
-ezzu deriv candles R_75 --count 50 --granularity 60
+eazzu deriv candles R_75 --count 50 --granularity 60
 eazzu deriv rates --base USD
 eazzu deriv collect-ticks R_100 --count 20
 eazzu deriv snapshot --symbols frxEURUSD,frXGBPUSD,R_75

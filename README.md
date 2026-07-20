@@ -16,10 +16,11 @@ Deriv/Forex trading strategies — from a laptop or from an iPhone via
  ╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝
 ```
 
-**v1.3.0** — MCP framework, autonomous agentic loop, persistent working
-memory, code runner/interpreter, artifacts creator, Telegram bot, 22+
-advanced technical indicators, any-site authentication, enhanced CLI UI,
-and web research pipeline.
+**v1.4.0** — Everything in v1.3 plus a full productivity suite: document
+authoring, spreadsheets & analytics, presentations, notes & wiki, tasks &
+plans, project & portfolio management, diagramming, workflow automation,
+business intelligence & charts, instant-answer search, language & i18n, and
+accessibility tooling — 90+ tools total, all pure-Python and iSH-friendly.
 
 ---
 
@@ -29,7 +30,7 @@ and web research pipeline.
 | --------------------- | --------------------------------------------- |
 | `eazzu.agent`         | ReAct-style tool-using LLM agent + autonomous loop + persistent memory |
 | `eazzu.providers`     | 80+ AI providers behind one API               |
-| `eazzu.tools`         | Shell, files, net, trade, dev, research, music, web, deriv, image, MCP, code, artifacts, memory tools |
+| `eazzu.tools`         | 90+ tools: shell, files, net, trade, dev, research, music, web, deriv, image, MCP, code, artifacts, memory + docs, data, slides, notes, tasks, projects, diagrams, workflows, BI, search, language, accessibility |
 | `eazzu.mcp`           | MCP client framework (HuggingFace, TradingView, MT5, filesystem, fetch, GitHub) |
 | `eazzu.trading`       | Scalpers, signal bots, backtest engines, real-time Deriv API, 22+ advanced indicators |
 | `eazzu.bot`           | Telegram bot interface (long polling, per-user agents) |
@@ -286,6 +287,31 @@ eazzu trade backtest --strategy deriv_scalper --symbol R_75 --days 30
 
 ---
 
+## 📝 Productivity suite (v1.4)
+
+Twelve new pure-Python tool modules expose 90+ tools total to the agent.
+No external runtime required — everything works on iSH/Alpine.
+
+| Module | Tools | What it does |
+| ------ | ----- | ------------ |
+| `eazzu.tools.docs_tools` | `doc_*` | Document authoring: text formatting, styles, templates, alignment, page layout, TOC, footnotes, word count, readability, export (md/txt/html/pdf) |
+| `eazzu.tools.data_tools` | `data_*` | Spreadsheets & analytics: safe formula evaluator, cell lookup, filter/sort, group-by aggregation, pivot tables, descriptive stats, moving averages, linear regression, XLOOKUP, CSV parse |
+| `eazzu.tools.slides_tools` | `slides_*` | Presentations: deck builder, themes, transitions/animations, design suggestions, export to HTML/Markdown/JSON/PPTX, outline import |
+| `eazzu.tools.notes_tools` | `notes_*` | Knowledge capture: notebooks, sections, pages, tags, full-text + tag search, wiki-links, JSON-persisted |
+| `eazzu.tools.tasks_tools` | `task_*`, `plan_*` | To-do & planning: lists, due dates, priorities, recurrence, subtasks, My Day, Kanban plans with buckets |
+| `eazzu.tools.projects_tools` | `project_*` | Project management: dependencies (FS/SS/FF/SF), Gantt data, critical path, baselines, variance, earned value (CPI/SPI), resource leveling |
+| `eazzu.tools.diagram_tools` | `diagram_*` | Diagramming: Mermaid flowchart/sequence/ERD/Gantt/mindmap/state/class, Graphviz DOT, swimlanes, fishbone |
+| `eazzu.tools.workflow_tools` | `workflow_*` | Automation engine: triggers, conditions, approvals, delays, loops, retries, run history |
+| `eazzu.tools.bi_tools` | `bi_*` | Business intelligence: SVG charts (bar/line/pie/doughnut/scatter/gauge/funnel), KPI cards, dashboards, natural-language Q&A over data |
+| `eazzu.tools.search_tools` | `search_*` | Instant answers: math, unit & currency conversion, definitions, time, web search via fetcher |
+| `eazzu.tools.language_tools` | `lang_*` | Global & i18n: translation requests, RTL/bidi, Unicode normalization, script detection, furigana/pinyin, localized date/number/currency, proofreading |
+| `eazzu.tools.accessibility_tools` | `a11y_*` | Accessibility: WCAG contrast checking, alt-text suggestions, reading-order analysis, keyboard & ARIA audits, color-blind simulation |
+
+All modules follow the existing `TOOLS: list[dict]` convention and are
+registered in `eazzu/tools/__init__.py` automatically.
+
+---
+
 ## 🛠  Dev toolkit
 
 ```bash
@@ -314,7 +340,7 @@ No API token required for market data (app_id 1089).
 eazzu deriv ping
 eazzu deriv symbols
 eazzu deriv tick frxEURUSD
-eazzu deriv candles R_75 --count 50 --granularity 60
+ezzu deriv candles R_75 --count 50 --granularity 60
 eazzu deriv rates --base USD
 eazzu deriv collect-ticks R_100 --count 20
 eazzu deriv snapshot --symbols frxEURUSD,frXGBPUSD,R_75
@@ -390,20 +416,26 @@ EAZZU/
 │   ├── agent/            # tool-using LLM loop + autonomous loop + memory
 │   ├── providers/        # 80+ AI providers
 │   ├── tools/            # tool registry (mcp, code, artifacts, memory, ...)
+│   │   ├── docs_tools.py       # document authoring & export (v1.4)
+│   │   ├── data_tools.py       # spreadsheets, formulas, pivot, stats (v1.4)
+│   │   ├── slides_tools.py     # presentations & decks (v1.4)
+│   │   ├── notes_tools.py      # notebooks & wiki (v1.4)
+│   │   ├── tasks_tools.py      # to-do & Kanban plans (v1.4)
+│   │   ├── projects_tools.py   # PM, Gantt, EVM, baselines (v1.4)
+│   │   ├── diagram_tools.py    # Mermaid & Graphviz generators (v1.4)
+│   │   ├── workflow_tools.py   # automation engine (v1.4)
+│   │   ├── bi_tools.py         # SVG charts, KPIs, dashboards, NLQ (v1.4)
+│   │   ├── search_tools.py     # instant answers & conversions (v1.4)
+│   │   ├── language_tools.py   # i18n, bidi, phonetic guides (v1.4)
+│   │   └── accessibility_tools.py  # WCAG, alt-text, audits (v1.4)
 │   ├── mcp/              # MCP client framework + 6 default servers
-│   │   ├── client.py     # JSON-RPC 2.0 client (stdio + HTTP)
-│   │   ├── registry.py    # server registry
-│   │   └── servers/      # HuggingFace, TradingView, MT5, filesystem, fetch
 │   ├── trading/          # Deriv API, MT5 bridge, advanced analysis, intelligence
-│   │   ├── advanced_analysis.py  # 22+ indicators
-│   │   ├── deriv_api.py  # real-time Deriv public API client
-│   │   ├── intelligence/ # knowledge, analysis, confluence signals, tracker
-│   │   └── knowledge/    # 12 technical-analysis JSON documents
 │   ├── bot/              # Telegram bot interface
 │   ├── audio/            # music production suite + advanced_music DSP
-│   ├── dev/toolkit/      # merged devtoolkit
+│   ├── dev/              # dev toolkit (analyzer, debugger, runner, extractor)
 │   ├── net/              # VPN core + IP utilities
 │   ├── media/            # media converters + image tools
+│   ├── web/              # static chat web UI
 │   ├── cli_ui.py         # pure-stdlib ANSI terminal renderer
 │   ├── cli.py            # unified `eazzu` CLI
 │   └── __main__.py

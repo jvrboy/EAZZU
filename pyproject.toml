@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "eazzu"
-version = "1.4.0"
+version = "1.5.0"
 description = "Unified agentic developer, trading intelligence, productivity and AI toolkit — transparent analysis, signals and adaptive tracking."
 readme = "README.md"
 requires-python = ">=3.9"

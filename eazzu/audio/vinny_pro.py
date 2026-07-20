@@ -166,7 +166,7 @@ def generate_ostinato(pattern: List[int], key: str = "C", scale_type: str = "maj
     return {"key": key, "scale": scale_type, "ostinato_variations": all_variations}
 
 
-def generate_padlayer(key: str = "C", scale_type: str = "major", bars: int = 4,
+def generate_pad_layer(key: str = "C", scale_type: str = "major", bars: int = 4,
                        chord_type: str = "maj9") -> Dict[str, Any]:
     """Generate a sustained pad/synth layer that holds chord tones across bars."""
     diatonic = diatonic_chords(key, scale_type)
@@ -174,7 +174,7 @@ def generate_padlayer(key: str = "C", scale_type: str = "major", bars: int = 4,
     pad = []
     for i in range(bars):
         triad = triads[i % len(triads)] if triads else {"root": key, "type": chord_type}
-        chord_data = build_chord(trad["root"], chord_type, octave=4)
+        chord_data = build_chord(triad["root"], chord_type, octave=4)
         pad.append({
             "bar": i + 1,
             "chord": f"{triad['root']}{chord_type}",

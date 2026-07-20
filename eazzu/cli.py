@@ -4,17 +4,24 @@ Sub-commands
 ------------
 * ``chat``           interactive agentic chat (BYO API keys)
 * ``ask``            one-shot agent query, prints answer & exits
+* ``loop``           autonomous agentic loop — works until task is complete
 * ``keys``           set / get / list / delete provider keys (encrypted)
 * ``providers``      list every registered provider, optionally by category
-* ``trade``          knowledge / analysis / signal generation / adaptive tracking / legacy scalpers
+* ``trade``          knowledge / analysis / signal generation / adaptive tracking
+* ``deriv``          real-time forex / synthetic-index data from Deriv public API
 * ``dev``            code analysis + run via vendored devtoolkit
-* ``research``       run the deep-research pipeline
+* ``research``       deep web research pipeline
 * ``net``            ip-info · dns · http-get
 * ``web``            launch the bundled Neural chat web UI locally
-* ``deriv``          real-time forex / synthetic-index data from Deriv public API
 * ``music``          AI composition, synthesis, analysis, MIDI, mastering
 * ``image``          procedural generation, filters, transforms, codecs
 * ``webtools``       fetch, search, scrape, extract web content
+* ``mcp``            MCP server management (HuggingFace, TradingView, MT5, etc.)
+* ``code``           code runner and interpreter (Python, shell, multi-language)
+* ``artifact``       create and export project artifacts
+* ``memory``         persistent working memory management
+* ``telegram``       run the EAZZU Telegram bot
+* ``analyze``        advanced technical analysis (22+ indicators)
 * ``version``        print the installed version
 """
 from __future__ import annotations
@@ -25,17 +32,7 @@ import os
 import sys
 from typing import Optional
 
-
-# ------------------------------------------------------------------ helpers #
-BANNER = r"""
- ███████╗ █████╗ ███████╗███████╗██╗   ██╗
- ██╔════╝██╔══██╗╚══███╔╝╚══███╔╝██║   ██║
- █████╗  ███████║  ███╔╝   ███╔╝ ██║   ██║
- ██╔══╝  ██╔══██║ ███╔╝   ███╔╝  ██║   ██║
- ███████╗██║  ██║███████╗███████╗╚██████╔╝
- ╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝
-   agentic dev · trading · AI toolkit
-"""
+from eazzu.cli_ui import banner, panel, table, kv, status_line, rule, C, colorize
 
 
 def _emit(obj) -> None:
@@ -49,9 +46,10 @@ def _emit(obj) -> None:
 def cmd_chat(args) -> int:
     from eazzu.agent import Agent
     agent = Agent(provider=args.provider, model=args.model)
-    print(BANNER)
+    print(banner())
     print(f"Provider: {args.provider}  ·  Model: {args.model or '(default)'}")
-    print("Type '/exit' to quit · '/reset' to clear history · '/tools' to list tools\n")
+    print(f"Tools: {len(agent.tools)} registered")
+    print("Type '/exit' to quit · '/reset' to clear · '/tools' to list tools · '/memory' for memory\n")
     while True:
         try:
             user = input("you › ").strip()
@@ -64,35 +62,51 @@ def cmd_chat(args) -> int:
             return 0
         if user == "/reset":
             agent.reset()
-            print("(history cleared)")
+            print(status_line("history cleared", "ok"))
             continue
         if user == "/tools":
             for t in agent.tools:
-                print(f"  · {t['name']:16s} {t['description']}")
+                print(f"  {colorize('·', C.DIM)} {t['name']:24s} {t['description'][:60]}")
+            continue
+        if user == "/memory":
+            from eazzu.agent.memory import WorkingMemory
+            _emit(WorkingMemory().snapshot())
             continue
         print("bot › ", end="", flush=True)
         turn = agent.ask(user, on_token=lambda c: (sys.stdout.write(c), sys.stdout.flush()))
         if not turn.reply and not turn.tool_calls:
             print("(no response)")
-        elif turn.tool_calls and turn.reply:
-            print()
         else:
             print()
         for tc in turn.tool_calls:
-            print(f"  ⤷ tool `{tc['name']}` args={tc['args']}")
+            print(f"  {colorize('⤷', C.DIM)} tool `{colorize(tc['name'], C.CYAN)}` args={tc['args']}")
 
 
 def cmd_ask(args) -> int:
     from eazzu.agent import Agent
     agent = Agent(provider=args.provider, model=args.model)
     turn = agent.ask(args.prompt)
-    _emit(turn.reply if not args.json else {
-        "reply": turn.reply,
-        "tool_calls": turn.tool_calls,
-        "latency_ms": turn.latency_ms,
-        "cost_usd": turn.cost_usd,
-    })
+    _emit(turn.reply if not args.json else {"reply": turn.reply, "tool_calls": turn.tool_calls, "latency_ms": turn.latency_ms, "cost_usd": turn.cost_usd})
     return 0
+
+
+# --------------------------------------------------------------------- LOOP #
+def cmd_loop(args) -> int:
+    from eazzu.agent.loop import run_loop
+    print(banner())
+    print(f"Starting autonomous loop (max {args.max_iterations} iterations)\n")
+    def on_step(step):
+        it = step['iteration']
+        print(f"\n{rule(f'Iteration {it}')}")
+        print(f"  {colorize('Reply:', C.CYAN)} {step['reply'][:200]}...")
+        if step['tool_calls']:
+            for tc in step['tool_calls']:
+                print(f"  {colorize('Tool:', C.YELLOW)} {tc['name']}")
+        print(f"  {colorize('Elapsed:', C.DIM)} {step['elapsed_s']}s")
+    result = run_loop(args.task, provider=args.provider, model=args.model, max_iterations=args.max_iterations, on_step=on_step)
+    print(f"\n{rule('Result')}")
+    _emit(result)
+    return 0 if result["status"] == "complete" else 1
 
 
 # ---------------------------------------------------------------------- KEYS #
@@ -102,12 +116,12 @@ def cmd_keys(args) -> int:
     action = args.action
     if action == "set":
         cm.set(args.provider, args.value)
-        print(f"✓ key stored for '{args.provider}' (encrypted at ~/.eazzu/)")
+        print(status_line(f"key stored for '{args.provider}' (encrypted at ~/.eazzu/)", "ok"))
     elif action == "get":
         print(cm.get(args.provider) or "(not set)")
     elif action == "delete":
         cm.delete(args.provider)
-        print(f"✓ deleted '{args.provider}'")
+        print(status_line(f"deleted '{args.provider}'", "ok"))
     elif action == "list":
         keys = cm.list_stored()
         print("\n".join(keys) if keys else "(no keys stored)")
@@ -157,11 +171,7 @@ def cmd_trade(args) -> int:
             else:
                 from eazzu.trading.intelligence import AdaptiveSignalTracker, SignalGenerator
                 tracker = AdaptiveSignalTracker(args.ledger)
-                result = SignalGenerator(tracker=tracker).generate(
-                    candles, symbol=symbol, timeframe=timeframe,
-                    min_confidence=args.min_confidence, risk_multiple=args.risk_multiple,
-                    reward_multiple=args.reward_multiple, expiry_bars=args.expiry_bars,
-                )
+                result = SignalGenerator(tracker=tracker).generate(candles, symbol=symbol, timeframe=timeframe, min_confidence=args.min_confidence, risk_multiple=args.risk_multiple, reward_multiple=args.reward_multiple, expiry_bars=args.expiry_bars)
                 if result.get("signal") and not args.no_record:
                     result["tracking"] = tracker.record_signal(result["signal"])
                 else:
@@ -189,7 +199,7 @@ def cmd_trade(args) -> int:
             return 2
     if action == "live":
         if not args.i_understand_risk:
-            print("⚠️  refusing to start live trading without --i-understand-risk")
+            print(status_line("refusing to start live trading without --i-understand-risk", "error"))
             return 2
         print("Live trading harness is intentionally stubbed here — configure your API credentials and use the dedicated runners under `eazzu.trading.*`.")
         return 0
@@ -209,8 +219,10 @@ def cmd_dev(args) -> int:
 
 # ------------------------------------------------------------------ RESEARCH #
 def cmd_research(args) -> int:
-    from eazzu.tools.research_tools import web_search
-    _emit(web_search(args.query, args.limit))
+    from eazzu.tools.research_tools_v2 import research_topic
+    print(status_line(f"Researching: {args.query}", "info"))
+    result = research_topic(args.query, max_sources=args.max_sources)
+    _emit(result)
     return 0
 
 
@@ -228,8 +240,7 @@ def cmd_net(args) -> int:
 
 # ----------------------------------------------------------------------- WEB #
 def cmd_web(args) -> int:
-    import http.server
-    import socketserver
+    import http.server, socketserver
     from pathlib import Path
     root = Path(__file__).parent / "web" / "chat"
     if not root.exists():
@@ -274,17 +285,12 @@ def cmd_deriv(args) -> int:
         _emit(deriv_api.collect_candles(args.symbol, args.count, args.granularity, args.timeout))
     elif action == "snapshot":
         symbols = args.symbols.split(",") if args.symbols else []
-        _emit(_deriv_snapshot(symbols))
+        out = {}
+        for s in symbols:
+            r = deriv_api.get_tick(s.strip())
+            out[s.strip()] = r.get("tick", r)
+        _emit({"symbols": out, "count": len(out)})
     return 0
-
-
-def _deriv_snapshot(symbols):
-    from eazzu.trading.deriv_api import get_tick
-    out = {}
-    for s in symbols:
-        r = get_tick(s.strip())
-        out[s.strip()] = r.get("tick", r)
-    return {"symbols": out, "count": len(out)}
 
 
 # ------------------------------------------------------------------- MUSIC #
@@ -312,9 +318,8 @@ def cmd_music(args) -> int:
         from eazzu.audio.vinny_extended import generate_euclidean_rhythm
         _emit({"rhythm": generate_euclidean_rhythm(args.steps, args.pulses, args.rotation)})
     elif action == "analyze":
-        import json as _json
         with open(args.path) as f:
-            data = _json.load(f)
+            data = json.load(f)
         from eazzu.tools.music_tools import analyze_audio
         _emit(analyze_audio(data.get("samples", []), data.get("sample_rate", 44100)))
     return 0
@@ -355,8 +360,7 @@ def cmd_webtools(args) -> int:
     if action == "get":
         _emit(web_tools.http_get(args.url, args.timeout))
     elif action == "post":
-        import json as _json
-        body = _json.loads(args.json_body) if args.json_body else None
+        body = json.loads(args.json_body) if args.json_body else None
         _emit(web_tools.http_post(args.url, data=args.data, json_body=body, timeout=args.timeout))
     elif action == "extract":
         _emit(web_tools.extract_text(args.url, args.timeout))
@@ -375,76 +379,255 @@ def cmd_webtools(args) -> int:
     return 0
 
 
+# --------------------------------------------------------------------- MCP #
+def cmd_mcp(args) -> int:
+    from eazzu.mcp import list_default_servers, get_server
+    from eazzu.mcp.registry import MCPRegistry
+    action = args.mcp_action
+    if action == "list":
+        servers = list_default_servers()
+        rows = [[s["name"], s["transport"], s.get("auth_env") or "—", s["description"][:50]] for s in servers]
+        print(table(["Server", "Transport", "Auth Env", "Description"], rows))
+    elif action == "status":
+        reg = MCPRegistry()
+        statuses = reg.server_status()
+        rows = [[s["name"], "✓" if s["reachable"] else "✗", s.get("error", "")[:40]] for s in statuses]
+        print(table(["Server", "Reachable", "Error"], rows))
+    elif action == "connect":
+        from eazzu.mcp.client import MCPClient
+        spec = get_server(args.server)
+        client = MCPClient(endpoint=spec["endpoint"], transport=spec["transport"])
+        info = client.initialize()
+        tools = client.list_tools()
+        client.close()
+        _emit({"server": args.server, "info": info, "tools": tools, "count": len(tools)})
+    elif action == "call":
+        from eazzu.mcp.client import MCPClient
+        spec = get_server(args.server)
+        client = MCPClient(endpoint=spec["endpoint"], transport=spec["transport"])
+        client.initialize()
+        arguments = json.loads(args.arguments) if args.arguments else {}
+        result = client.call_tool(args.tool, arguments)
+        client.close()
+        _emit(result)
+    elif action == "tools":
+        from eazzu.mcp.client import MCPClient
+        spec = get_server(args.server)
+        client = MCPClient(endpoint=spec["endpoint"], transport=spec["transport"])
+        client.initialize()
+        tools = client.list_tools()
+        client.close()
+        rows = [[t.get("name", ""), t.get("description", "")[:60]] for t in tools]
+        print(table(["Tool", "Description"], rows))
+    return 0
+
+
+# --------------------------------------------------------------------- CODE #
+def cmd_code(args) -> int:
+    from eazzu.tools.code_tools import run_python, run_python_interactive, interpret_code, run_script, run_shell
+    action = args.code_action
+    if action == "python":
+        with open(args.file) as f:
+            code = f.read()
+        _emit(run_python(code, timeout=args.timeout))
+    elif action == "eval":
+        _emit(run_python(args.code, timeout=args.timeout))
+    elif action == "interactive":
+        _emit(run_python_interactive(args.code, session_id=args.session))
+    elif action == "interpret":
+        _emit(interpret_code(args.expression))
+    elif action == "script":
+        _emit(run_script(args.file, interpreter=args.interpreter, args=args.args, timeout=args.timeout))
+    elif action == "shell":
+        _emit(run_shell(args.command, timeout=args.timeout))
+    elif action == "sessions":
+        from eazzu.tools.code_tools import _list_sessions
+        _emit(_list_sessions())
+    return 0
+
+
+# ---------------------------------------------------------------- ARTIFACT #
+def cmd_artifact(args) -> int:
+    from eazzu.tools.artifact_tools import create_artifact, get_artifact, list_artifacts, export_artifact, export_all, create_html, create_markdown, create_json_artifact, create_python_script, create_config
+    action = args.artifact_action
+    if action == "create":
+        with open(args.file) as f:
+            content = f.read()
+        _emit(create_artifact(args.name, args.type, content))
+    elif action == "list":
+        _emit(list_artifacts())
+    elif action == "get":
+        _emit(get_artifact(args.id))
+    elif action == "export":
+        _emit(export_artifact(args.id, args.output))
+    elif action == "export-all":
+        _emit(export_all(args.directory))
+    elif action == "html":
+        _emit(create_html(args.title, args.body))
+    elif action == "markdown":
+        _emit(create_markdown(args.title, args.body))
+    elif action == "json":
+        data = json.loads(args.data) if args.data else {}
+        _emit(create_json_artifact(args.name, data))
+    elif action == "python":
+        with open(args.file) as f:
+            code = f.read()
+        _emit(create_python_script(args.name, code))
+    return 0
+
+
+# ------------------------------------------------------------------- MEMORY #
+def cmd_memory(args) -> int:
+    from eazzu.agent.memory import WorkingMemory
+    mem = WorkingMemory()
+    action = args.memory_action
+    if action == "snapshot":
+        _emit(mem.snapshot())
+    elif action == "facts":
+        _emit(mem.list_facts())
+    elif action == "set":
+        _emit(mem.set_fact(args.key, args.value))
+    elif action == "get":
+        _emit(mem.get_fact(args.key))
+    elif action == "delete":
+        _emit(mem.delete_fact(args.key))
+    elif action == "history":
+        _emit(mem.get_history(args.limit))
+    elif action == "clear-history":
+        _emit(mem.clear_history())
+    elif action == "tasks":
+        _emit(mem.list_tasks(args.status))
+    elif action == "scratchpad":
+        _emit(mem.get_scratchpad())
+    elif action == "set-scratchpad":
+        _emit(mem.set_scratchpad(args.text))
+    elif action == "artifacts":
+        _emit(mem.list_artifacts())
+    elif action == "reset":
+        _emit(mem.reset())
+    return 0
+
+
+# ----------------------------------------------------------------- TELEGRAM #
+def cmd_telegram(args) -> int:
+    from eazzu.bot.telegram import run_bot, get_me
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    if not token:
+        from eazzu.providers import ConfigManager
+        token = ConfigManager().get("telegram_bot") or ""
+    if not token:
+        print(status_line("No Telegram bot token found. Set TELEGRAM_BOT_TOKEN env var or run: eazzu keys set telegram_bot <token>", "error"))
+        return 2
+    if args.check:
+        me = get_me(token)
+        _emit(me)
+        return 0
+    allowed = args.allowed_users.split(",") if args.allowed_users else None
+    run_bot(token, provider=args.provider, model=args.model, allowed_users=allowed)
+    return 0
+
+
+# ------------------------------------------------------------------ ANALYZE #
+def cmd_analyze(args) -> int:
+    from eazzu.trading.advanced_analysis import full_analysis, vwap, williams_r, mfi, cci, obv, aroon, cmo, trix, keltner_channels, donchian_channels, heikin_ashi, renko, pivot_points, multi_timeframe, correlation
+    with open(args.candles) as f:
+        data = json.load(f)
+    candles = data.get("candles") or data.get("data") or data.get("history") or data
+    if not isinstance(candles, list):
+        print("invalid candle data format")
+        return 2
+    if args.indicator == "full":
+        _emit(full_analysis(candles))
+    elif args.indicator == "vwap":
+        _emit({"vwap": vwap(candles)})
+    elif args.indicator == "williams":
+        _emit({"williams_r": williams_r(candles, args.period)})
+    elif args.indicator == "mfi":
+        _emit({"mfi": mfi(candles, args.period)})
+    elif args.indicator == "cci":
+        _emit({"cci": cci(candles, args.period)})
+    elif args.indicator == "obv":
+        _emit({"obv": obv(candles)})
+    elif args.indicator == "aroon":
+        _emit(aroon(candles, args.period))
+    elif args.indicator == "cmo":
+        _emit({"cmo": cmo(candles, args.period)})
+    elif args.indicator == "trix":
+        _emit({"trix": trix(candles, args.period)})
+    elif args.indicator == "keltner":
+        _emit(keltner_channels(candles))
+    elif args.indicator == "donchian":
+        _emit(donchian_channels(candles, args.period))
+    elif args.indicator == "heikin":
+        _emit({"heikin_ashi": heikin_ashi(candles)})
+    elif args.indicator == "renko":
+        _emit(renko(candles))
+    elif args.indicator == "pivot":
+        _emit(pivot_points(candles, args.method))
+    elif args.indicator == "mtf":
+        _emit(multi_timeframe(candles))
+    else:
+        _emit(full_analysis(candles))
+    return 0
+
+
 # --------------------------------------------------------------------- PARSE #
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser("eazzu", description="Unified agentic developer + trading + AI toolkit")
+    p = argparse.ArgumentParser("eazzu", description="Unified agentic developer + trading + AI + MCP toolkit")
     p.add_argument("--version", action="store_true", help="print version and exit")
     sub = p.add_subparsers(dest="cmd")
 
-    # chat / ask
     for name, fn, help_txt in (("chat", cmd_chat, "interactive agentic chat"), ("ask", cmd_ask, "one-shot agent query")):
         sp = sub.add_parser(name, help=help_txt)
         sp.add_argument("--provider", default=os.environ.get("EAZZU_PROVIDER", "openai"))
         sp.add_argument("--model", default=os.environ.get("EAZZU_MODEL"))
         if name == "ask":
-            sp.add_argument("prompt")
-            sp.add_argument("--json", action="store_true")
+            sp.add_argument("prompt"); sp.add_argument("--json", action="store_true")
         sp.set_defaults(func=fn)
 
-    # keys
+    lp = sub.add_parser("loop", help="autonomous agentic loop — works until task complete")
+    lp.add_argument("task"); lp.add_argument("--provider", default="openai"); lp.add_argument("--model")
+    lp.add_argument("--max-iterations", type=int, default=20)
+    lp.set_defaults(func=cmd_loop)
+
     kp = sub.add_parser("keys", help="manage provider API keys (encrypted)")
     ksub = kp.add_subparsers(dest="action", required=True)
     for act, extra in (("set", ["provider", "value"]), ("get", ["provider"]), ("delete", ["provider"]), ("list", [])):
         s = ksub.add_parser(act)
-        for a in extra:
-            s.add_argument(a)
+        for a in extra: s.add_argument(a)
     kp.set_defaults(func=cmd_keys)
 
-    # providers
     pp = sub.add_parser("providers", help="list registered providers")
     pp.add_argument("--category", help="filter: llm | image | audio | search | embedding")
     pp.set_defaults(func=cmd_providers)
 
-    # trade
     tp = sub.add_parser("trade", help="trading analysis, signal tracking, and legacy toolkit")
     tsub = tp.add_subparsers(dest="trade_action", required=True)
-    tsub.add_parser("list", help="list bundled trading capabilities")
-    tsub.add_parser("knowledge", help="list and validate packaged reference JSON")
-    bt = tsub.add_parser("backtest", help="prepare a legacy strategy backtest")
-    bt.add_argument("--strategy", default="deriv_scalper"); bt.add_argument("--symbol", default="R_75"); bt.add_argument("--days", type=int, default=30)
-    for name, help_text in (("analyze", "run multi-method analysis on a local OHLCV JSON file"), ("signal", "generate an analysis-only confluence signal from local OHLCV JSON")):
+    tsub.add_parser("list"); tsub.add_parser("knowledge")
+    bt = tsub.add_parser("backtest"); bt.add_argument("--strategy", default="deriv_scalper"); bt.add_argument("--symbol", default="R_75"); bt.add_argument("--days", type=int, default=30)
+    for name, help_text in (("analyze", "run multi-method analysis on local OHLCV JSON"), ("signal", "generate confluence signal from local OHLCV JSON")):
         command = tsub.add_parser(name, help=help_text)
-        command.add_argument("--candles", required=True)
-        command.add_argument("--symbol"); command.add_argument("--timeframe")
+        command.add_argument("--candles", required=True); command.add_argument("--symbol"); command.add_argument("--timeframe")
         if name == "signal":
-            command.add_argument("--min-confidence", type=float, default=0.56)
-            command.add_argument("--risk-multiple", type=float, default=1.5)
-            command.add_argument("--reward-multiple", type=float, default=2.0)
-            command.add_argument("--expiry-bars", type=int, default=12)
-            command.add_argument("--ledger")
-            command.add_argument("--no-record", action="store_true")
-    track = tsub.add_parser("track", help="inspect or resolve locally recorded analysis-only signals")
-    track_sub = track.add_subparsers(dest="track_action", required=True)
-    track_summary = track_sub.add_parser("summary", help="show outcome and adaptive-evidence statistics")
-    track_summary.add_argument("--ledger"); track_summary.add_argument("--limit", type=int, default=20)
-    track_resolve = track_sub.add_parser("resolve", help="resolve one signal against later OHLCV candles")
-    track_resolve.add_argument("signal_id"); track_resolve.add_argument("--candles", required=True); track_resolve.add_argument("--ledger")
+            command.add_argument("--min-confidence", type=float, default=0.56); command.add_argument("--risk-multiple", type=float, default=1.5)
+            command.add_argument("--reward-multiple", type=float, default=2.0); command.add_argument("--expiry-bars", type=int, default=12)
+            command.add_argument("--ledger"); command.add_argument("--no-record", action="store_true")
+    track = tsub.add_parser("track"); track_sub = track.add_subparsers(dest="track_action", required=True)
+    ts = track_sub.add_parser("summary"); ts.add_argument("--ledger"); ts.add_argument("--limit", type=int, default=20)
+    tr = track_sub.add_parser("resolve"); tr.add_argument("signal_id"); tr.add_argument("--candles", required=True); tr.add_argument("--ledger")
     lv = tsub.add_parser("live"); lv.add_argument("--i-understand-risk", action="store_true")
     tp.set_defaults(func=cmd_trade)
 
-    # dev
     dp = sub.add_parser("dev", help="developer toolkit")
     dsub = dp.add_subparsers(dest="dev_action", required=True)
     az = dsub.add_parser("analyze"); az.add_argument("path")
     rn = dsub.add_parser("run"); rn.add_argument("path"); rn.add_argument("args", nargs="*")
     dp.set_defaults(func=cmd_dev)
 
-    # research
-    rp = sub.add_parser("research", help="quick web/deep research")
-    rp.add_argument("query"); rp.add_argument("--limit", type=int, default=5)
+    rp = sub.add_parser("research", help="deep web research pipeline")
+    rp.add_argument("query"); rp.add_argument("--max-sources", type=int, default=5)
     rp.set_defaults(func=cmd_research)
 
-    # net
     np_ = sub.add_parser("net", help="network utilities")
     nsub = np_.add_subparsers(dest="net_action", required=True)
     ip_ = nsub.add_parser("ip"); ip_.add_argument("address")
@@ -452,12 +635,10 @@ def build_parser() -> argparse.ArgumentParser:
     ht = nsub.add_parser("http"); ht.add_argument("url")
     np_.set_defaults(func=cmd_net)
 
-    # web
     wp = sub.add_parser("web", help="serve the bundled chat web UI")
     wp.add_argument("--port", type=int, default=8787)
     wp.set_defaults(func=cmd_web)
 
-    # deriv
     dp2 = sub.add_parser("deriv", help="real-time forex data via Deriv public API")
     dsub = dp2.add_subparsers(dest="deriv_action", required=True)
     dsub.add_parser("ping"); dsub.add_parser("symbols"); dsub.add_parser("status"); dsub.add_parser("time")
@@ -465,13 +646,14 @@ def build_parser() -> argparse.ArgumentParser:
     hi = dsub.add_parser("history"); hi.add_argument("symbol"); hi.add_argument("--count", type=int, default=100); hi.add_argument("--style", default="ticks")
     cd = dsub.add_parser("candles"); cd.add_argument("symbol"); cd.add_argument("--count", type=int, default=100); cd.add_argument("--granularity", type=int, default=60)
     rt = dsub.add_parser("rates"); rt.add_argument("--base", default="USD")
-    pp_ = dsub.add_parser("proposal"); pp_.add_argument("--contract-type", default="CALL"); pp_.add_argument("--symbol", default="R_100"); pp_.add_argument("--amount", type=float, default=10); pp_.add_argument("--basis", default="stake"); pp_.add_argument("--currency", default="USD"); pp_.add_argument("--duration", type=int, default=5); pp_.add_argument("--duration-unit", default="m")
+    pp_ = dsub.add_parser("proposal"); pp_.add_argument("--contract-type", default="CALL"); pp_.add_argument("--symbol", default="R_100")
+    pp_.add_argument("--amount", type=float, default=10); pp_.add_argument("--basis", default="stake"); pp_.add_argument("--currency", default="USD")
+    pp_.add_argument("--duration", type=int, default=5); pp_.add_argument("--duration-unit", default="m")
     ct = dsub.add_parser("collect-ticks"); ct.add_argument("symbol"); ct.add_argument("--count", type=int, default=10); ct.add_argument("--timeout", type=float, default=30.0)
     cc = dsub.add_parser("collect-candles"); cc.add_argument("symbol"); cc.add_argument("--count", type=int, default=10); cc.add_argument("--granularity", type=int, default=60); cc.add_argument("--timeout", type=float, default=60.0)
     sn = dsub.add_parser("snapshot"); sn.add_argument("--symbols")
     dp2.set_defaults(func=cmd_deriv)
 
-    # music
     mp = sub.add_parser("music", help="AI music composition and analysis")
     msub = mp.add_subparsers(dest="music_action", required=True)
     mel = msub.add_parser("melody"); mel.add_argument("--key", default="C"); mel.add_argument("--scale", default="major"); mel.add_argument("--bars", type=int, default=4); mel.add_argument("--mood", default="happy"); mel.add_argument("--complexity", type=float, default=0.5)
@@ -481,10 +663,9 @@ def build_parser() -> argparse.ArgumentParser:
     st = msub.add_parser("structure"); st.add_argument("--genre", default="pop")
     msub.add_parser("scales")
     eu = msub.add_parser("euclidean"); eu.add_argument("--steps", type=int, default=16); eu.add_argument("--pulses", type=int, default=4); eu.add_argument("--rotation", type=int, default=0)
-    an = msub.add_parser("analyze"); an.add_argument("path", help="JSON with samples + sample_rate")
+    an = msub.add_parser("analyze"); an.add_argument("path")
     mp.set_defaults(func=cmd_music)
 
-    # image
     ip = sub.add_parser("image", help="image generation and processing")
     isub = ip.add_subparsers(dest="image_action", required=True)
     gr = isub.add_parser("gradient"); gr.add_argument("--width", type=int, default=256); gr.add_argument("--height", type=int, default=256); gr.add_argument("--direction", default="horizontal"); gr.add_argument("--color1", default="0,0,0"); gr.add_argument("--color2", default="255,255,255")
@@ -495,7 +676,6 @@ def build_parser() -> argparse.ArgumentParser:
     isub.add_parser("pil")
     ip.set_defaults(func=cmd_image)
 
-    # webtools
     wtp = sub.add_parser("webtools", help="web access: fetch, search, scrape, extract")
     wtsub = wtp.add_subparsers(dest="webtools_action", required=True)
     g = wtsub.add_parser("get"); g.add_argument("url"); g.add_argument("--timeout", type=int, default=20)
@@ -509,6 +689,68 @@ def build_parser() -> argparse.ArgumentParser:
     ui = wtsub.add_parser("url"); ui.add_argument("url")
     wtp.set_defaults(func=cmd_webtools)
 
+    mcp_p = sub.add_parser("mcp", help="MCP server management (HuggingFace, TradingView, MT5, etc.)")
+    mcp_sub = mcp_p.add_subparsers(dest="mcp_action", required=True)
+    mcp_sub.add_parser("list", help="list configured MCP servers")
+    mcp_sub.add_parser("status", help="ping all MCP servers")
+    mc = mcp_sub.add_parser("connect", help="connect to a server and list its tools"); mc.add_argument("server")
+    mcall = mcp_sub.add_parser("call", help="call a tool on an MCP server"); mcall.add_argument("server"); mcall.add_argument("tool"); mcall.add_argument("--arguments", default="{}")
+    mt2 = mcp_sub.add_parser("tools", help="list tools on a server"); mt2.add_argument("server")
+    mcp_p.set_defaults(func=cmd_mcp)
+
+    code_p = sub.add_parser("code", help="code runner and interpreter")
+    code_sub = code_p.add_subparsers(dest="code_action", required=True)
+    cp = code_sub.add_parser("python", help="run a Python file"); cp.add_argument("file"); cp.add_argument("--timeout", type=int, default=30)
+    ce = code_sub.add_parser("eval", help="evaluate Python code string"); ce.add_argument("code"); ce.add_argument("--timeout", type=int, default=30)
+    ci = code_sub.add_parser("interactive", help="run Python in a persistent session"); ci.add_argument("code"); ci.add_argument("--session", default="default")
+    cint = code_sub.add_parser("interpret", help="evaluate a Python expression"); cint.add_argument("expression")
+    cs = code_sub.add_parser("script", help="run a script with any interpreter"); cs.add_argument("file"); cs.add_argument("--interpreter", default="python"); cs.add_argument("args", nargs="*"); cs.add_argument("--timeout", type=int, default=30)
+    csh = code_sub.add_parser("shell", help="run a shell command"); csh.add_argument("command"); csh.add_argument("--timeout", type=int, default=30)
+    code_sub.add_parser("sessions", help="list interactive Python sessions")
+    code_p.set_defaults(func=cmd_code)
+
+    art_p = sub.add_parser("artifact", help="create and manage project artifacts")
+    art_sub = art_p.add_subparsers(dest="artifact_action", required=True)
+    ac = art_sub.add_parser("create", help="create artifact from file"); ac.add_argument("name"); ac.add_argument("type"); ac.add_argument("file")
+    art_sub.add_parser("list", help="list all artifacts")
+    ag = art_sub.add_parser("get", help="get artifact by ID"); ag.add_argument("id")
+    ae = art_sub.add_parser("export", help="export artifact to file"); ae.add_argument("id"); ae.add_argument("output")
+    aea = art_sub.add_parser("export-all", help="export all artifacts"); aea.add_argument("directory")
+    ah = art_sub.add_parser("html", help="create HTML page"); ah.add_argument("title"); ah.add_argument("body")
+    am = art_sub.add_parser("markdown", help="create Markdown doc"); am.add_argument("title"); am.add_argument("body")
+    aj = art_sub.add_parser("json", help="create JSON artifact"); aj.add_argument("name"); aj.add_argument("data")
+    ap = art_sub.add_parser("python", help="create Python script artifact"); ap.add_argument("name"); ap.add_argument("file")
+    art_p.set_defaults(func=cmd_artifact)
+
+    mem_p = sub.add_parser("memory", help="persistent working memory management")
+    mem_sub = mem_p.add_subparsers(dest="memory_action", required=True)
+    mem_sub.add_parser("snapshot")
+    mem_sub.add_parser("facts")
+    ms = mem_sub.add_parser("set"); ms.add_argument("key"); ms.add_argument("value")
+    mg = mem_sub.add_parser("get"); mg.add_argument("key")
+    md = mem_sub.add_parser("delete"); md.add_argument("key")
+    mh = mem_sub.add_parser("history"); mh.add_argument("--limit", type=int, default=50)
+    mem_sub.add_parser("clear-history")
+    mt3 = mem_sub.add_parser("tasks"); mt3.add_argument("--status")
+    mem_sub.add_parser("scratchpad")
+    mss = mem_sub.add_parser("set-scratchpad"); mss.add_argument("text")
+    mem_sub.add_parser("artifacts")
+    mem_sub.add_parser("reset")
+    mem_p.set_defaults(func=cmd_memory)
+
+    tg_p = sub.add_parser("telegram", help="run the EAZZU Telegram bot")
+    tg_p.add_argument("--provider", default="openai"); tg_p.add_argument("--model")
+    tg_p.add_argument("--allowed-users", help="comma-separated Telegram user IDs")
+    tg_p.add_argument("--check", action="store_true", help="verify bot token and exit")
+    tg_p.set_defaults(func=cmd_telegram)
+
+    an_p = sub.add_parser("analyze", help="advanced technical analysis (22+ indicators)")
+    an_p.add_argument("candles", help="path to OHLCV JSON file")
+    an_p.add_argument("--indicator", default="full", help="indicator: full, vwap, williams, mfi, cci, obv, aroon, cmo, trix, keltner, donchian, heikin, renko, pivot, mtf")
+    an_p.add_argument("--period", type=int, default=14)
+    an_p.add_argument("--method", default="classic", help="pivot method: classic, camarilla, woodie")
+    an_p.set_defaults(func=cmd_analyze)
+
     return p
 
 
@@ -520,7 +762,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         print(f"eazzu {__version__}")
         return 0
     if not getattr(args, "cmd", None):
-        print(BANNER)
+        print(banner())
         parser.print_help()
         return 0
     return args.func(args)

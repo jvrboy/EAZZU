@@ -1,395 +1,699 @@
-"""Advanced image tools — analysis, generation, transformation, color, metadata.
+"""Advanced image tools — generation, processing, analysis, conversion.
 
-Pure stdlib. Works with raw pixel arrays (list of [r,g,b] or [r,g,b,a]) or
-decodes common formats via the stdlib `imghdr` + struct when possible. All
-functions return JSON-serialisable dicts.
+Pure-stdlib core (struct + zlib + custom BMP/PNG/PPM codecs) so it runs on
+iSH/Alpine with zero dependencies. When Pillow is installed, additional
+advanced operations (filters, transforms, EXIF) become available.
 """
 from __future__ import annotations
 
 import base64
-import colorsys
-import hashlib
-import io
 import math
+import random
 import struct
+import zlib
 from typing import Any, Dict, List, Optional, Tuple
+
+RGBA = Tuple[int, int, int, int]
 
 
 def _error(code: str, exc: Exception) -> Dict[str, Any]:
     return {"error": code, "message": str(exc)}
 
 
-# ─── Color analysis ─────────────────────────────────────────────────────
+class ImageBuffer:
+    """In-memory RGBA image (width x height x 4 bytes)."""
 
-
-def analyze_colors(pixels: List[List[int]]) -> Dict[str, Any]:
-    """Analyze the color palette of an image (list of [r,g,b] pixels).
-
-    Returns dominant colors, brightness, saturation, warmth, and a histogram.
-    """
-    if not pixels:
-        return {"error": "no_pixels"}
-    hist: Dict[str, int] = {}
-    h_sum = s_sum = v_sum = 0.0
-    warm = cool = 0
-    for px in pixels:
-        r, g, b = px[0], px[1], px[2]
-        key = f"#{r:02x}{g:02x}{b:02x}"
-        hist[key] = hist.get(key, 0) + 1
-        h, s, v = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
-        h_sum += h
-        s_sum += s
-        v_sum += v
-        if h < 0.5 or h > 0.9:
-            warm += 1
+    def __init__(self, width: int, height: int, pixels: Optional[List[int]] = None):
+        self.width = width
+        self.height = height
+        if pixels is None:
+            self.pixels = [0, 0, 0, 255] * (width * height)
         else:
-            cool += 1
-    n = len(pixels)
-    dominant = sorted(hist.items(), key=lambda x: -x[1])[:10]
-    return {
-        "pixel_count": n,
-        "unique_colors": len(hist),
-        "dominant_colors": [{"hex": c, "count": cnt, "ratio": round(cnt / n, 4)} for c, cnt in dominant],
-        "avg_brightness": round(v_sum / n, 4),
-        "avg_saturation": round(s_sum / n, 4),
-        "avg_hue": round(h_sum / n, 4),
-        "warm_cool_ratio": {"warm": warm, "cool": cool, "warm_ratio": round(warm / n, 4)},
-    }
+            self.pixels = pixels
+
+    def get(self, x: int, y: int) -> RGBA:
+        i = (y * self.width + x) * 4
+        return (self.pixels[i], self.pixels[i + 1], self.pixels[i + 2], self.pixels[i + 3])
+
+    def set(self, x: int, y: int, r: int, g: int, b: int, a: int = 255):
+        i = (y * self.width + x) * 4
+        self.pixels[i:i + 4] = [r, g, b, a]
+
+    def fill(self, r: int, g: int, b: int, a: int = 255):
+        self.pixels = [r, g, b, a] * (self.width * self.height)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"width": self.width, "height": self.height, "channels": 4, "pixels": len(self.pixels)}
 
 
-def extract_palette(pixels: List[List[int]], k: int = 8) -> Dict[str, Any]:
-    """Extract a k-color palette using simple frequency bucketing (pseudo-k-means)."""
-    if not pixels:
-        return {"error": "no_pixels"}
-    hist: Dict[Tuple[int, int, int], int] = {}
-    for px in pixels:
-        r, g, b = px[0] // 32 * 32, px[1] // 32 * 32, px[2] // 32 * 32
-        hist[(r, g, b)] = hist.get((r, g, b), 0) + 1
-    top = sorted(hist.items(), key=lambda x: -x[1])[:k]
-    return {
-        "palette": [
-            {"hex": f"#{r:02x}{g:02x}{b:02x}", "weight": cnt} for (r, g, b), cnt in top
-        ]
-    }
+def _clamp(v: int) -> int:
+    return max(0, min(255, int(v)))
 
 
-def color_distance(c1: List[int], c2: List[int]) -> Dict[str, Any]:
-    """Compute Euclidean and weighted (sRGB-aware) distance between two RGB colors."""
-    r1, g1, b1 = c1[:3]
-    r2, g2, b2 = c2[:3]
-    euclid = math.sqrt((r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2)
-    rmean = (r1 + r2) / 2
-    weighted = math.sqrt((2 + rmean / 256) * (r1 - r2) ** 2 + 4 * (g1 - g2) ** 2 + (2 + (255 - rmean) / 256) * (b1 - b2) ** 2)
-    return {"euclidean": round(euclid, 2), "weighted": round(weighted, 2), "max": 441.67}
+# ─── Procedural generation ───────────────────────────────────────────────
+
+def generate_gradient(width: int = 256, height: int = 256, direction: str = "horizontal",
+                      color1: Tuple[int, int, int] = (0, 0, 0),
+                      color2: Tuple[int, int, int] = (255, 255, 255)) -> Dict[str, Any]:
+    try:
+        img = ImageBuffer(width, height)
+        for y in range(height):
+            for x in range(width):
+                if direction == "horizontal":
+                    t = x / max(width - 1, 1)
+                elif direction == "vertical":
+                    t = y / max(height - 1, 1)
+                elif direction == "diagonal":
+                    t = (x + y) / max(width + height - 2, 1)
+                else:
+                    t = math.hypot(x - width / 2, y - height / 2) / math.hypot(width / 2, height / 2)
+                r = color1[0] + (color2[0] - color1[0]) * t
+                g = color1[1] + (color2[1] - color1[1]) * t
+                b = color1[2] + (color2[2] - color1[2]) * t
+                img.set(x, y, _clamp(r), _clamp(g), _clamp(b))
+        return {"image": img.to_dict(), "gradient": {"direction": direction, "colors": [color1, color2]}}
+    except Exception as exc:
+        return _error("gradient_failed", exc)
 
 
-def rgb_to_hsl(rgb: List[int]) -> Dict[str, Any]:
-    """Convert RGB to HSL."""
-    h, l, s = colorsys.rgb_to_hls(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255)
-    return {"h": round(h * 360), "s": round(s * 100), "l": round(l * 100)}
+def generate_noise(width: int = 256, height: int = 256, scale: float = 1.0,
+                   seed: int = 42) -> Dict[str, Any]:
+    try:
+        random.seed(seed)
+        img = ImageBuffer(width, height)
+        for y in range(height):
+            for x in range(width):
+                v = random.randint(0, 255)
+                img.set(x, y, v, v, v)
+        return {"image": img.to_dict(), "type": "white_noise", "scale": scale}
+    except Exception as exc:
+        return _error("noise_failed", exc)
 
 
-def hsl_to_rgb(h: int, s: int, l: int) -> Dict[str, Any]:
-    """Convert HSL (0-360, 0-100, 0-100) to RGB."""
-    r, g, b = colorsys.hls_to_rgb(h / 360, l / 100, s / 100)
-    return {"r": round(r * 255), "g": round(g * 255), "b": round(b * 255),
-            "hex": f"#{round(r*255):02x}{round(g*255):02x}{round(b*255):02x}"}
+def generate_checkerboard(width: int = 256, height: int = 256, cells: int = 8,
+                          color1: Tuple[int, int, int] = (0, 0, 0),
+                          color2: Tuple[int, int, int] = (255, 255, 255)) -> Dict[str, Any]:
+    try:
+        img = ImageBuffer(width, height)
+        cw, ch = width / cells, height / cells
+        for y in range(height):
+            for x in range(width):
+                cx, cy = int(x / cw), int(y / ch)
+                c = color1 if (cx + cy) % 2 == 0 else color2
+                img.set(x, y, *c)
+        return {"image": img.to_dict(), "cells": cells}
+    except Exception as exc:
+        return _error("checkerboard_failed", exc)
 
 
-def complement_color(rgb: List[int]) -> Dict[str, Any]:
-    """Return the complementary, analogous, and triadic colors for a given RGB."""
-    h, l, s = colorsys.rgb_to_hls(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255)
-    def _hls_to_hex(hh, ll, ss):
-        r, g, b = colorsys.hls_to_rgb(hh, ll, ss)
-        return f"#{round(r*255):02x}{round(g*255):02x}{round(b*255):02x}"
-    return {
-        "original": f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}",
-        "complement": _hls_to_hex((h + 0.5) % 1, l, s),
-        "analogous": [_hls_to_hex((h + 1/12) % 1, l, s), _hls_to_hex((h - 1/12) % 1, l, s)],
-        "triadic": [_hls_to_hex((h + 1/3) % 1, l, s), _hls_to_hex((h + 2/3) % 1, l, s)],
-        "split_complement": [_hls_to_hex((h + 0.5 + 1/12) % 1, l, s), _hls_to_hex((h + 0.5 - 1/12) % 1, l, s)],
-    }
+def generate_plasma(width: int = 256, height: int = 256, scale: float = 0.05) -> Dict[str, Any]:
+    try:
+        img = ImageBuffer(width, height)
+        for y in range(height):
+            for x in range(width):
+                v = math.sin(x * scale) + math.sin(y * scale) + math.sin((x + y) * scale * 0.5) + math.sin(math.hypot(x - width / 2, y - height / 2) * scale)
+                v = (v + 4) / 8
+                r = _clamp(128 + 127 * math.sin(v * math.pi))
+                g = _clamp(128 + 127 * math.sin(v * math.pi + 2))
+                b = _clamp(128 + 127 * math.sin(v * math.pi + 4))
+                img.set(x, y, r, g, b)
+        return {"image": img.to_dict(), "type": "plasma", "scale": scale}
+    except Exception as exc:
+        return _error("plasma_failed", exc)
 
 
-# ─── Image statistics ──────────────────────────────────────────────────
+def generate_mandelbrot(width: int = 256, height: int = 256, max_iter: int = 80,
+                        zoom: float = 1.0, cx: float = -0.5, cy: float = 0.0) -> Dict[str, Any]:
+    try:
+        img = ImageBuffer(width, height)
+        aspect = width / height
+        for y in range(height):
+            for x in range(width):
+                re = (x / width - 0.5) * 3.5 / zoom * aspect + cx
+                im = (y / height - 0.5) * 2.0 / zoom + cy
+                zr, zi = 0.0, 0.0
+                i = 0
+                while i < max_iter and zr * zr + zi * zi < 4:
+                    zr, zi = zr * zr - zi * zi + re, 2 * zr * zi + im
+                    i += 1
+                if i == max_iter:
+                    img.set(x, y, 0, 0, 0)
+                else:
+                    t = i / max_iter
+                    img.set(x, y, _clamp(9 * t * 255), _clamp(15 * (1 - t) * 255), _clamp(8.5 * t * 255))
+        return {"image": img.to_dict(), "type": "mandelbrot", "max_iter": max_iter, "zoom": zoom}
+    except Exception as exc:
+        return _error("mandelbrot_failed", exc)
 
 
-def image_stats(pixels: List[List[int]], width: int = 0, height: int = 0) -> Dict[str, Any]:
-    """Compute brightness, contrast, entropy, and channel statistics."""
-    if not pixels:
-        return {"error": "no_pixels"}
-    n = len(pixels)
-    grays = [0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2] for p in pixels]
-    mean = sum(grays) / n
-    variance = sum((g - mean) ** 2 for g in grays) / n
-    std = math.sqrt(variance)
-    hist = [0] * 256
-    for g in grays:
-        hist[min(255, max(0, int(g)))] += 1
-    entropy = 0.0
-    for cnt in hist:
-        if cnt > 0:
-            p = cnt / n
-            entropy -= p * math.log2(p)
-    return {
-        "pixel_count": n,
-        "dimensions": {"width": width, "height": height} if width and height else None,
-        "brightness": round(mean, 2),
-        "contrast": round(std, 2),
-        "entropy": round(entropy, 4),
-        "r_mean": round(sum(p[0] for p in pixels) / n, 2),
-        "g_mean": round(sum(p[1] for p in pixels) / n, 2),
-        "b_mean": round(sum(p[2] for p in pixels) / n, 2),
-        "r_std": round(math.sqrt(sum((p[0] - mean) ** 2 for p in pixels) / n), 2),
-        "g_std": round(math.sqrt(sum((p[1] - mean) ** 2 for p in pixels) / n), 2),
-        "b_std": round(math.sqrt(sum((p[2] - mean) ** 2 for p in pixels) / n), 2),
-    }
+# ─── Filters & adjustments ──────────────────────────────────────────────
+
+def adjust_brightness(pixels: List[int], width: int, height: int, amount: int = 0) -> Dict[str, Any]:
+    try:
+        out = list(pixels)
+        for i in range(0, len(out), 4):
+            out[i] = _clamp(out[i] + amount)
+            out[i + 1] = _clamp(out[i + 1] + amount)
+            out[i + 2] = _clamp(out[i + 2] + amount)
+        return {"pixels": out, "width": width, "height": height}
+    except Exception as exc:
+        return _error("brightness_failed", exc)
 
 
-def image_hash(pixels: List[List[int]]) -> Dict[str, Any]:
-    """Compute a perceptual average hash (aHash) and a content hash for an image."""
-    if not pixels:
-        return {"error": "no_pixels"}
-    grays = [int(0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2]) for p in pixels]
-    mean = sum(grays) / len(grays)
-    bits = [1 if g > mean else 0 for g in grays]
-    ahash = 0
-    for b in bits:
-        ahash = (ahash << 1) | b
-    content = hashlib.md5(str(grays[:1000]).encode()).hexdigest()
-    return {"ahash": hex(ahash), "content_hash": content, "mean_gray": round(mean, 2)}
+def adjust_contrast(pixels: List[int], width: int, height: int, factor: float = 1.0) -> Dict[str, Any]:
+    try:
+        out = list(pixels)
+        for i in range(0, len(out), 4):
+            out[i] = _clamp((out[i] - 128) * factor + 128)
+            out[i + 1] = _clamp((out[i + 1] - 128) * factor + 128)
+            out[i + 2] = _clamp((out[i + 2] - 128) * factor + 128)
+        return {"pixels": out, "width": width, "height": height}
+    except Exception as exc:
+        return _error("contrast_failed", exc)
 
 
-# ─── Image transformations ──────────────────────────────────────────────
+def adjust_gamma(pixels: List[int], width: int, height: int, gamma: float = 1.0) -> Dict[str, Any]:
+    try:
+        lut = [_clamp(255 * ((i / 255) ** (1 / gamma))) for i in range(256)]
+        out = list(pixels)
+        for i in range(0, len(out), 4):
+            out[i] = lut[out[i]]
+            out[i + 1] = lut[out[i + 1]]
+            out[i + 2] = lut[out[i + 2]]
+        return {"pixels": out, "width": width, "height": height}
+    except Exception as exc:
+        return _error("gamma_failed", exc)
 
 
-def adjust_brightness(pixels: List[List[int]], factor: float = 1.2) -> Dict[str, Any]:
-    """Adjust brightness of all pixels by a multiplicative factor."""
-    result = []
-    for p in pixels:
-        r = min(255, max(0, int(p[0] * factor)))
-        g = min(255, max(0, int(p[1] * factor)))
-        b = min(255, max(0, int(p[2] * factor)))
-        result.append([r, g, b] + p[3:] if len(p) > 3 else [r, g, b])
-    return {"pixel_count": len(result), "factor": factor, "pixels": result[:1000]}
-
-
-def adjust_contrast(pixels: List[List[int]], factor: float = 1.5) -> Dict[str, Any]:
-    """Adjust contrast of all pixels (factor > 1 increases, < 1 decreases)."""
-    n = len(pixels)
-    if n == 0:
-        return {"error": "no_pixels"}
-    mean_r = sum(p[0] for p in pixels) / n
-    mean_g = sum(p[1] for p in pixels) / n
-    mean_b = sum(p[2] for p in pixels) / n
-    result = []
-    for p in pixels:
-        r = min(255, max(0, int((p[0] - mean_r) * factor + mean_r)))
-        g = min(255, max(0, int((p[1] - mean_g) * factor + mean_g)))
-        b = min(255, max(0, int((p[2] - mean_b) * factor + mean_b)))
-        result.append([r, g, b] + p[3:] if len(p) > 3 else [r, g, b])
-    return {"pixel_count": len(result), "factor": factor, "pixels": result[:1000]}
-
-
-def grayscale(pixels: List[List[int]]) -> Dict[str, Any]:
-    """Convert pixels to grayscale (luminance weighting)."""
-    result = []
-    for p in pixels:
-        g = int(0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2])
-        result.append([g, g, g])
-    return {"pixel_count": len(result), "pixels": result[:1000]}
-
-
-def invert(pixels: List[List[int]]) -> Dict[str, Any]:
-    """Invert all pixel colors."""
-    result = []
-    for p in pixels:
-        r, g, b = 255 - p[0], 255 - p[1], 255 - p[2]
-        result.append([r, g, b])
-    return {"pixel_count": len(result), "pixels": result[:1000]}
-
-
-def sepia(pixels: List[List[int]]) -> Dict[str, Any]:
-    """Apply a sepia tone filter."""
-    result = []
-    for p in pixels:
-        r, g, b = p[0], p[1], p[2]
-        sr = min(255, int(0.393 * r + 0.769 * g + 0.189 * b))
-        sg = min(255, int(0.349 * r + 0.686 * g + 0.168 * b))
-        sb = min(255, int(0.272 * r + 0.534 * g + 0.131 * b))
-        result.append([sr, sg, sb])
-    return {"pixel_count": len(result), "pixels": result[:1000]}
-
-
-def apply_tint(pixels: List[List[int]], tint: List[int], strength: float = 0.3) -> Dict[str, Any]:
-    """Apply a color tint to all pixels with a given strength (0-1)."""
-    tr, tg, tb = tint[:3]
-    result = []
-    for p in pixels:
-        r = int(p[0] * (1 - strength) + tr * strength)
-        g = int(p[1] * (1 - strength) + tg * strength)
-        b = int(p[2] * (1 - strength) + tb * strength)
-        result.append([r, g, b])
-    return {"pixel_count": len(result), "tint": tint, "strength": strength, "pixels": result[:1000]}
-
-
-# ─── Pattern / generative ───────────────────────────────────────────────
-
-
-def generate_gradient(width: int = 100, height: int = 100, c1: Optional[List[int]] = None,
-                      c2: Optional[List[int]] = None, direction: str = "horizontal") -> Dict[str, Any]:
-    """Generate a linear gradient image as a pixel array."""
-    c1 = c1 or [0, 0, 0]
-    c2 = c2 or [255, 255, 255]
-    pixels = []
-    for y in range(height):
-        for x in range(width):
-            if direction == "horizontal":
-                t = x / max(1, width - 1)
-            elif direction == "vertical":
-                t = y / max(1, height - 1)
+def grayscale(pixels: List[int], width: int, height: int, method: str = "luminance") -> Dict[str, Any]:
+    try:
+        out = list(pixels)
+        for i in range(0, len(out), 4):
+            if method == "average":
+                g = (out[i] + out[i + 1] + out[i + 2]) // 3
+            elif method == "luma":
+                g = _clamp(0.299 * out[i] + 0.587 * out[i + 1] + 0.114 * out[i + 2])
             else:
-                t = (x + y) / max(1, width + height - 2)
-            r = int(c1[0] * (1 - t) + c2[0] * t)
-            g = int(c1[1] * (1 - t) + c2[1] * t)
-            b = int(c1[2] * (1 - t) + c2[2] * t)
-            pixels.append([r, g, b])
-    return {"width": width, "height": height, "direction": direction, "pixel_count": len(pixels),
-            "pixels": pixels[:2000]}
+                g = _clamp(0.2126 * out[i] + 0.7152 * out[i + 1] + 0.0722 * out[i + 2])
+            out[i] = out[i + 1] = out[i + 2] = g
+        return {"pixels": out, "width": width, "height": height, "method": method}
+    except Exception as exc:
+        return _error("grayscale_failed", exc)
 
 
-def generate_checkerboard(width: int = 64, height: int = 64, cell: int = 8,
-                          c1: Optional[List[int]] = None, c2: Optional[List[int]] = None) -> Dict[str, Any]:
-    """Generate a checkerboard pattern."""
-    c1 = c1 or [255, 255, 255]
-    c2 = c2 or [0, 0, 0]
-    pixels = []
-    for y in range(height):
-        for x in range(width):
-            cx, cy = x // cell, y // cell
-            color = c1 if (cx + cy) % 2 == 0 else c2
-            pixels.append(list(color))
-    return {"width": width, "height": height, "cell_size": cell, "pixel_count": len(pixels),
-            "pixels": pixels[:2000]}
+def invert(pixels: List[int], width: int, height: int) -> Dict[str, Any]:
+    try:
+        out = list(pixels)
+        for i in range(0, len(out), 4):
+            out[i] = 255 - out[i]
+            out[i + 1] = 255 - out[i + 1]
+            out[i + 2] = 255 - out[i + 2]
+        return {"pixels": out, "width": width, "height": height}
+    except Exception as exc:
+        return _error("invert_failed", exc)
 
 
-def generate_noise(width: int = 64, height: int = 64, seed: int = 0) -> Dict[str, Any]:
-    """Generate random noise as a pixel array (deterministic with seed)."""
-    import random
-    rng = random.Random(seed)
-    pixels = [[rng.randint(0, 255), rng.randint(0, 255), rng.randint(0, 255)]
-              for _ in range(width * height)]
-    return {"width": width, "height": height, "seed": seed, "pixel_count": len(pixels),
-            "pixels": pixels[:2000]}
+def sepia(pixels: List[int], width: int, height: int) -> Dict[str, Any]:
+    try:
+        out = list(pixels)
+        for i in range(0, len(out), 4):
+            r, g, b = out[i], out[i + 1], out[i + 2]
+            out[i] = _clamp(0.393 * r + 0.769 * g + 0.189 * b)
+            out[i + 1] = _clamp(0.349 * r + 0.686 * g + 0.168 * b)
+            out[i + 2] = _clamp(0.272 * r + 0.534 * g + 0.131 * b)
+        return {"pixels": out, "width": width, "height": height}
+    except Exception as exc:
+        return _error("sepia_failed", exc)
 
 
-def generate_mandelbrot(width: int = 100, height: int = 100, max_iter: int = 50) -> Dict[str, Any]:
-    """Generate a Mandelbrot set fractal as a pixel array."""
-    pixels = []
-    for y in range(height):
-        for x in range(width):
-            cx = (x - width / 2) * 4 / width - 0.5
-            cy = (y - height / 2) * 4 / height
-            zx, zy = 0.0, 0.0
-            i = 0
-            while zx * zx + zy * zy < 4 and i < max_iter:
-                zx, zy = zx * zx - zy * zy + cx, 2 * zx * zy + cy
-                i += 1
-            if i == max_iter:
-                pixels.append([0, 0, 0])
-            else:
-                t = i / max_iter
-                pixels.append([int(9 * t * 255), int(2 * (1 - t) * t * 255), int((1 - t) * 255)])
-    return {"width": width, "height": height, "max_iter": max_iter, "pixel_count": len(pixels),
-            "pixels": pixels[:2000]}
+def box_blur(pixels: List[int], width: int, height: int, radius: int = 1) -> Dict[str, Any]:
+    try:
+        def blur_axis(src, w, h, axis):
+            out = [0] * len(src)
+            for y in range(h):
+                for x in range(w):
+                    r = g = b = a = n = 0
+                    for k in range(-radius, radius + 1):
+                        xx = x + k if axis == 0 else x
+                        yy = y if axis == 0 else y + k
+                        if axis == 0 and 0 <= xx < w:
+                            i = (yy * w + xx) * 4
+                        elif axis == 1 and 0 <= yy < h:
+                            i = (yy * w + xx) * 4
+                        else:
+                            continue
+                        r += src[i]; g += src[i + 1]; b += src[i + 2]; a += src[i + 3]; n += 1
+                    j = (y * w + x) * 4
+                    out[j] = r // n; out[j + 1] = g // n; out[j + 2] = b // n; out[j + 3] = a // n
+            return out
+        tmp = blur_axis(pixels, width, height, 0)
+        out = blur_axis(tmp, width, height, 1)
+        return {"pixels": out, "width": width, "height": height, "radius": radius}
+    except Exception as exc:
+        return _error("blur_failed", exc)
 
 
-# ─── Metadata / encoding ────────────────────────────────────────────────
+def sharpen(pixels: List[int], width: int, height: int, amount: float = 1.0) -> Dict[str, Any]:
+    try:
+        kernel = [0, -amount, 0, -amount, 1 + 4 * amount, -amount, 0, -amount, 0]
+        out = list(pixels)
+        for y in range(1, height - 1):
+            for x in range(1, width - 1):
+                r = g = b = 0
+                for ky in range(-1, 2):
+                    for kx in range(-1, 2):
+                        i = ((y + ky) * width + (x + kx)) * 4
+                        k = kernel[(ky + 1) * 3 + (kx + 1)]
+                        r += pixels[i] * k; g += pixels[i + 1] * k; b += pixels[i + 2] * k
+                j = (y * width + x) * 4
+                out[j] = _clamp(r); out[j + 1] = _clamp(g); out[j + 2] = _clamp(b)
+        return {"pixels": out, "width": width, "height": height, "amount": amount}
+    except Exception as exc:
+        return _error("sharpen_failed", exc)
 
 
-def image_metadata(width: int, height: int, format: str = "png", channels: int = 3,
-                   has_alpha: bool = False, color_depth: int = 8) -> Dict[str, Any]:
-    """Compute image metadata and estimated file sizes."""
-    bpp = channels * color_depth
-    raw_size = width * height * (channels + (1 if has_alpha else 0))
-    return {
-        "width": width, "height": height, "format": format,
-        "channels": channels, "has_alpha": has_alpha, "color_depth": color_depth,
-        "bits_per_pixel": bpp,
-        "megapixels": round(width * height / 1e6, 2),
-        "aspect_ratio": round(width / height, 4) if height else None,
-        "raw_size_bytes": raw_size,
-        "raw_size_kb": round(raw_size / 1024, 1),
-        "estimated_png_kb": round(raw_size * 0.5 / 1024, 1),
-        "estimated_jpeg_kb": round(raw_size * 0.15 / 1024, 1),
-    }
+def edge_detect(pixels: List[int], width: int, height: int) -> Dict[str, Any]:
+    try:
+        gx = [-1, 0, 1, -2, 0, 2, -1, 0, 1]
+        gy = [-1, -2, -1, 0, 0, 0, 1, 2, 1]
+        out = list(pixels)
+        for y in range(1, height - 1):
+            for x in range(1, width - 1):
+                sx = sy = 0
+                for ky in range(-1, 2):
+                    for kx in range(-1, 2):
+                        i = ((y + ky) * width + (x + kx)) * 4
+                        gray = (pixels[i] + pixels[i + 1] + pixels[i + 2]) // 3
+                        sx += gray * gx[(ky + 1) * 3 + (kx + 1)]
+                        sy += gray * gy[(ky + 1) * 3 + (kx + 1)]
+                        mag = _clamp(math.hypot(sx, sy))
+                j = (y * width + x) * 4
+                out[j] = out[j + 1] = out[j + 2] = mag
+        return {"pixels": out, "width": width, "height": height}
+    except Exception as exc:
+        return _error("edge_failed", exc)
 
 
-def base64_encode_image(data: bytes) -> Dict[str, Any]:
-    """Base64-encode raw image bytes and return a data URI."""
-    encoded = base64.b64encode(data).decode("ascii")
-    return {"base64": encoded[:5000], "size_bytes": len(data), "data_uri": f"data:image/png;base64,{encoded}"}
+def color_balance(pixels: List[int], width: int, height: int,
+                  r_shift: int = 0, g_shift: int = 0, b_shift: int = 0) -> Dict[str, Any]:
+    try:
+        out = list(pixels)
+        for i in range(0, len(out), 4):
+            out[i] = _clamp(out[i] + r_shift)
+            out[i + 1] = _clamp(out[i + 1] + g_shift)
+            out[i + 2] = _clamp(out[i + 2] + b_shift)
+        return {"pixels": out, "width": width, "height": height}
+    except Exception as exc:
+        return _error("balance_failed", exc)
 
 
-def detect_format(data: bytes) -> Dict[str, Any]:
-    """Detect image format from raw bytes magic numbers."""
-    if data.startswith(b"\x89PNG\r\n\x1a\n"):
-        return {"format": "png", "mime": "image/png"}
-    if data.startswith(b"\xff\xd8\xff"):
-        return {"format": "jpeg", "mime": "image/jpeg"}
-    if data.startswith(b"GIF87a") or data.startswith(b"GIF89a"):
-        return {"format": "gif", "mime": "image/gif"}
-    if data[:6] in (b"BM",):
-        return {"format": "bmp", "mime": "image/bmp"}
-    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
-        return {"format": "webp", "mime": "image/webp"}
-    return {"format": "unknown", "mime": None}
+def threshold(pixels: List[int], width: int, height: int, level: int = 128) -> Dict[str, Any]:
+    try:
+        out = list(pixels)
+        for i in range(0, len(out), 4):
+            g = (out[i] + out[i + 1] + out[i + 2]) // 3
+            v = 255 if g >= level else 0
+            out[i] = out[i + 1] = out[i + 2] = v
+        return {"pixels": out, "width": width, "height": height, "level": level}
+    except Exception as exc:
+        return _error("threshold_failed", exc)
+
+
+# ─── Transformations ────────────────────────────────────────────────────
+
+def resize_nearest(pixels: List[int], width: int, height: int,
+                   new_width: int, new_height: int) -> Dict[str, Any]:
+    try:
+        out = [0] * (new_width * new_height * 4)
+        for y in range(new_height):
+            for x in range(new_width):
+                sx = int(x * width / new_width)
+                sy = int(y * height / new_height)
+                si = (sy * width + sx) * 4
+                di = (y * new_width + x) * 4
+                out[di:di + 4] = pixels[si:si + 4]
+        return {"pixels": out, "width": new_width, "height": new_height}
+    except Exception as exc:
+        return _error("resize_failed", exc)
+
+
+def resize_bilinear(pixels: List[int], width: int, height: int,
+                    new_width: int, new_height: int) -> Dict[str, Any]:
+    try:
+        out = [0] * (new_width * new_height * 4)
+        for y in range(new_height):
+            for x in range(new_width):
+                fx = x * (width - 1) / max(new_width - 1, 1)
+                fy = y * (height - 1) / max(new_height - 1, 1)
+                x0, y0 = int(fx), int(fy)
+                x1 = min(x0 + 1, width - 1)
+                y1 = min(y0 + 1, height - 1)
+                dx, dy = fx - x0, fy - y0
+                for c in range(4):
+                    i00 = (y0 * width + x0) * 4 + c
+                    i10 = (y0 * width + x1) * 4 + c
+                    i01 = (y1 * width + x0) * 4 + c
+                    i11 = (y1 * width + x1) * 4 + c
+                    top = pixels[i00] * (1 - dx) + pixels[i10] * dx
+                    bot = pixels[i01] * (1 - dx) + pixels[i11] * dx
+                    out[(y * new_width + x) * 4 + c] = _clamp(top * (1 - dy) + bot * dy)
+        return {"pixels": out, "width": new_width, "height": new_height}
+    except Exception as exc:
+        return _error("bilinear_failed", exc)
+
+
+def rotate_90(pixels: List[int], width: int, height: int, clockwise: bool = True) -> Dict[str, Any]:
+    try:
+        out = [0] * (width * height * 4)
+        nw, nh = height, width
+        for y in range(height):
+            for x in range(width):
+                si = (y * width + x) * 4
+                if clockwise:
+                    di = (x * nw + (nw - 1 - y)) * 4
+                else:
+                    di = ((nh - 1 - x) * nw + y) * 4
+                out[di:di + 4] = pixels[si:si + 4]
+        return {"pixels": out, "width": nw, "height": nh}
+    except Exception as exc:
+        return _error("rotate90_failed", exc)
+
+
+def flip(pixels: List[int], width: int, height: int, axis: str = "horizontal") -> Dict[str, Any]:
+    try:
+        out = list(pixels)
+        for y in range(height):
+            for x in range(width):
+                sx = x if axis == "horizontal" else width - 1 - x
+                sy = height - 1 - y if axis == "vertical" else y
+                si = (sy * width + sx) * 4
+                di = (y * width + x) * 4
+                out[di:di + 4] = pixels[si:si + 4]
+        return {"pixels": out, "width": width, "height": height, "axis": axis}
+    except Exception as exc:
+        return _error("flip_failed", exc)
+
+
+def crop(pixels: List[int], width: int, height: int, x: int, y: int,
+         new_width: int, new_height: int) -> Dict[str, Any]:
+    try:
+        out = [0] * (new_width * new_height * 4)
+        for ry in range(new_height):
+            for rx in range(new_width):
+                sx, sy = x + rx, y + ry
+                if 0 <= sx < width and 0 <= sy < height:
+                    si = (sy * width + sx) * 4
+                    di = (ry * new_width + rx) * 4
+                    out[di:di + 4] = pixels[si:si + 4]
+        return {"pixels": out, "width": new_width, "height": new_height}
+    except Exception as exc:
+        return _error("crop_failed", exc)
+
+
+# ─── Analysis ────────────────────────────────────────────────────────────
+
+def histogram(pixels: List[int], width: int, height: int) -> Dict[str, Any]:
+    try:
+        r = [0] * 256; g = [0] * 256; b = [0] * 256
+        for i in range(0, len(pixels), 4):
+            r[pixels[i]] += 1; g[pixels[i + 1]] += 1; b[pixels[i + 2]] += 1
+        return {"red": r, "green": g, "blue": b, "total_pixels": width * height}
+    except Exception as exc:
+        return _error("histogram_failed", exc)
+
+
+def average_color(pixels: List[int], width: int, height: int) -> Dict[str, Any]:
+    try:
+        r = g = b = 0
+        n = width * height
+        for i in range(0, len(pixels), 4):
+            r += pixels[i]; g += pixels[i + 1]; b += pixels[i + 2]
+        return {"r": r // n, "g": g // n, "b": b // n, "hex": f"#{r // n:02x}{g // n:02x}{b // n:02x}"}
+    except Exception as exc:
+        return _error("avg_color_failed", exc)
+
+
+def dominant_color(pixels: List[int], width: int, height: int, buckets: int = 4) -> Dict[str, Any]:
+    try:
+        counts: Dict[Tuple[int, int, int], int] = {}
+        step = 256 // buckets
+        for i in range(0, len(pixels), 4):
+            key = (pixels[i] // step, pixels[i + 1] // step, pixels[i + 2] // step)
+            counts[key] = counts.get(key, 0) + 1
+        best = max(counts, key=counts.get)
+        return {"color": [best[0] * step, best[1] * step, best[2] * step],
+                "count": counts[best], "buckets": buckets}
+    except Exception as exc:
+        return _error("dominant_failed", exc)
+
+
+def brightness_stats(pixels: List[int], width: int, height: int) -> Dict[str, Any]:
+    try:
+        vals = []
+        for i in range(0, len(pixels), 4):
+            vals.append(0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2])
+        n = len(vals) or 1
+        mean = sum(vals) / n
+        var = sum((v - mean) ** 2 for v in vals) / n
+        return {"mean": round(mean, 2), "std": round(math.sqrt(var), 2),
+                "min": min(vals) if vals else 0, "max": max(vals) if vals else 0}
+    except Exception as exc:
+        return _error("brightness_stats_failed", exc)
+
+
+# ─── Composition ────────────────────────────────────────────────────────
+
+def blend(pixels_a: List[int], pixels_b: List[int], width: int, height: int,
+          alpha: float = 0.5) -> Dict[str, Any]:
+    try:
+        out = [0] * len(pixels_a)
+        for i in range(0, len(pixels_a), 4):
+            out[i] = _clamp(pixels_a[i] * (1 - alpha) + pixels_b[i] * alpha)
+            out[i + 1] = _clamp(pixels_a[i + 1] * (1 - alpha) + pixels_b[i + 1] * alpha)
+            out[i + 2] = _clamp(pixels_a[i + 2] * (1 - alpha) + pixels_b[i + 2] * alpha)
+            out[i + 3] = 255
+        return {"pixels": out, "width": width, "height": height, "alpha": alpha}
+    except Exception as exc:
+        return _error("blend_failed", exc)
+
+
+def overlay_text(pixels: List[int], width: int, height: int, x: int, y: int,
+                 text: str, color: Tuple[int, int, int] = (255, 255, 255)) -> Dict[str, Any]:
+    try:
+        from eazzu.media.image.font5x7 import FONT, CHAR_W, CHAR_H
+        out = list(pixels)
+        for ci, ch in enumerate(text):
+            glyph = FONT.get(ch, FONT.get("?", []))
+            for ry, row in enumerate(glyph):
+                for rx, bit in enumerate(row):
+                    if bit and 0 <= x + ci * (CHAR_W + 1) + rx < width and 0 <= y + ry < height:
+                        idx = ((y + ry) * width + (x + ci * (CHAR_W + 1) + rx)) * 4
+                        out[idx] = color[0]; out[idx + 1] = color[1]; out[idx + 2] = color[2]
+        return {"pixels": out, "width": width, "height": height, "text": text}
+    except Exception as exc:
+        return _error("text_failed", exc)
+
+
+# ─── PPM codec (no deps) ────────────────────────────────────────────────
+
+def encode_ppm(pixels: List[int], width: int, height: int) -> Dict[str, Any]:
+    try:
+        header = f"P6\n{width} {height}\n255\n".encode()
+        body = bytearray()
+        for i in range(0, len(pixels), 4):
+            body += bytes([pixels[i], pixels[i + 1], pixels[i + 2]])
+        return {"data": base64.b64encode(header + bytes(body)).decode(), "format": "ppm"}
+    except Exception as exc:
+        return _error("ppm_failed", exc)
+
+
+def decode_ppm(data_b64: str) -> Dict[str, Any]:
+    try:
+        raw = base64.b64decode(data_b64)
+        lines = raw.split(b"\n", 3)
+        if lines[0] != b"P6":
+            return {"error": "not_ppm"}
+        w, h = map(int, lines[2].split())
+        body = lines[3]
+        pixels = []
+        for i in range(0, len(body), 3):
+            pixels += [body[i], body[i + 1], body[i + 2], 255]
+        return {"pixels": pixels, "width": w, "height": h}
+    except Exception as exc:
+        return _error("decode_ppm_failed", exc)
+
+
+# ─── PNG codec (zlib, no deps) ───────────────────────────────────────────
+
+def encode_png(pixels: List[int], width: int, height: int) -> Dict[str, Any]:
+    try:
+        def chunk(tag, data):
+            c = tag + data
+            return struct.pack(">I", len(data)) + c + struct.pack(">I", zlib.crc32(c) & 0xFFFFFFFF)
+        sig = b"\x89PNG\r\n\x1a\n"
+        ihdr = struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)
+        raw = bytearray()
+        for y in range(height):
+            raw.append(0)
+            for x in range(width):
+                i = (y * width + x) * 4
+                raw += bytes([pixels[i], pixels[i + 1], pixels[i + 2], pixels[i + 3]])
+        idat = zlib.compress(bytes(raw), 9)
+        png = sig + chunk(b"IHDR", ihdr) + chunk(b"IDAT", idat) + chunk(b"IEND", b"")
+        return {"data": base64.b64encode(png).decode(), "format": "png", "bytes": len(png)}
+    except Exception as exc:
+        return _error("png_failed", exc)
+
+
+# ─── Pillow-enhanced operations (optional) ──────────────────────────────
+
+def pil_available() -> Dict[str, Any]:
+    try:
+        import PIL  # noqa
+        return {"available": True, "version": PIL.__version__}
+    except ImportError:
+        return {"available": False}
+
+
+def pil_apply_filter(path: str, filter_name: str = "BLUR", out_path: Optional[str] = None) -> Dict[str, Any]:
+    try:
+        from PIL import Image, ImageFilter  # type: ignore
+        img = Image.open(path)
+        f = getattr(ImageFilter, filter_name.upper(), ImageFilter.BLUR)
+        result = img.filter(f)
+        out = out_path or path.replace(".", "_filtered.")
+        result.save(out)
+        return {"input": path, "output": out, "filter": filter_name}
+    except ImportError:
+        return {"error": "pillow_not_installed"}
+    except Exception as exc:
+        return _error("pil_filter_failed", exc)
+
+
+def pil_resize(path: str, width: int, height: int, out_path: Optional[str] = None) -> Dict[str, Any]:
+    try:
+        from PIL import Image  # type: ignore
+        img = Image.open(path)
+        result = img.resize((width, height))
+        out = out_path or path.replace(".", "_resized.")
+        result.save(out)
+        return {"input": path, "output": out, "size": [width, height]}
+    except ImportError:
+        return {"error": "pillow_not_installed"}
+    except Exception as exc:
+        return _error("pil_resize_failed", exc)
+
+
+def pil_exif(path: str) -> Dict[str, Any]:
+    try:
+        from PIL import Image  # type: ignore
+        img = Image.open(path)
+        exif = img._getexif() if hasattr(img, "_getexif") else None
+        return {"path": path, "exif": exif}
+    except ImportError:
+        return {"error": "pillow_not_installed"}
+    except Exception as exc:
+        return _error("exif_failed", exc)
+
+
+def pil_convert(path: str, fmt: str = "PNG", out_path: Optional[str] = None) -> Dict[str, Any]:
+    try:
+        from PIL import Image  # type: ignore
+        img = Image.open(path)
+        out = out_path or f"{path.rsplit('.', 1)[0]}.{fmt.lower()}"
+        img.save(out, format=fmt)
+        return {"input": path, "output": out, "format": fmt}
+    except ImportError:
+        return {"error": "pillow_not_installed"}
+    except Exception as exc:
+        return _error("pil_convert_failed", exc)
+
+
+def pil_thumbnail(path: str, size: int = 128, out_path: Optional[str] = None) -> Dict[str, Any]:
+    try:
+        from PIL import Image  # type: ignore
+        img = Image.open(path)
+        img.thumbnail((size, size))
+        out = out_path or path.replace(".", "_thumb.")
+        img.save(out)
+        return {"input": path, "output": out, "size": size}
+    except ImportError:
+        return {"error": "pillow_not_installed"}
+    except Exception as exc:
+        return _error("thumbnail_failed", exc)
 
 
 TOOLS = [
-    {"name": "analyze_colors", "description": "Analyze the color palette of an image (list of [r,g,b] pixels): dominant colors, brightness, saturation, warmth.",
-     "params": {"pixels": "array[array[int]]"}, "run": analyze_colors},
-    {"name": "extract_palette", "description": "Extract a k-color palette from an image using frequency bucketing.",
-     "params": {"pixels": "array[array[int]]", "k": "int"}, "run": extract_palette},
-    {"name": "color_distance", "description": "Compute Euclidean and weighted sRGB distance between two RGB colors.",
-     "params": {"c1": "array[int]", "c2": "array[int]"}, "run": color_distance},
-    {"name": "rgb_to_hsl", "description": "Convert an RGB color to HSL.",
-     "params": {"rgb": "array[int]"}, "run": rgb_to_hsl},
-    {"name": "hsl_to_rgb", "description": "Convert HSL (0-360, 0-100, 0-100) to RGB.",
-     "params": {"h": "int", "s": "int", "l": "int"}, "run": hsl_to_rgb},
-    {"name": "complement_color", "description": "Return complementary, analogous, triadic, and split-complement colors for an RGB color.",
-     "params": {"rgb": "array[int]"}, "run": complement_color},
-    {"name": "image_stats", "description": "Compute brightness, contrast, entropy, and per-channel statistics for an image.",
-     "params": {"pixels": "array[array[int]]", "width": "int", "height": "int"}, "run": image_stats},
-    {"name": "image_hash", "description": "Compute a perceptual average hash (aHash) and content hash for an image.",
-     "params": {"pixels": "array[array[int]]"}, "run": image_hash},
-    {"name": "adjust_brightness", "description": "Adjust brightness of all pixels by a multiplicative factor.",
-     "params": {"pixels": "array[array[int]]", "factor": "float"}, "run": adjust_brightness},
-    {"name": "adjust_contrast", "description": "Adjust contrast of all pixels (factor > 1 increases, < 1 decreases).",
-     "params": {"pixels": "array[array[int]]", "factor": "float"}, "run": adjust_contrast},
-    {"name": "grayscale", "description": "Convert pixels to grayscale using luminance weighting.",
-     "params": {"pixels": "array[array[int]]"}, "run": grayscale},
-    {"name": "invert", "description": "Invert all pixel colors (negative effect).",
-     "params": {"pixels": "array[array[int]]"}, "run": invert},
-    {"name": "sepia", "description": "Apply a sepia tone filter to pixels.",
-     "params": {"pixels": "array[array[int]]"}, "run": sepia},
-    {"name": "apply_tint", "description": "Apply a color tint to all pixels with a given strength (0-1).",
-     "params": {"pixels": "array[array[int]]", "tint": "array[int]", "strength": "float"}, "run": apply_tint},
-    {"name": "generate_gradient", "description": "Generate a linear gradient image (horizontal, vertical, or diagonal).",
-     "params": {"width": "int", "height": "int", "c1": "array[int]", "c2": "array[int]", "direction": "string"},
-     "run": generate_gradient},
+    {"name": "generate_gradient", "description": "Generate a linear gradient image (horizontal/vertical/diagonal/radial).",
+     "params": {"width": "int", "height": "int", "direction": "string", "color1": "array[int]", "color2": "array[int]"}, "run": generate_gradient},
+    {"name": "generate_noise", "description": "Generate a value-noise image.",
+     "params": {"width": "int", "height": "int", "scale": "float", "seed": "int"}, "run": generate_noise},
     {"name": "generate_checkerboard", "description": "Generate a checkerboard pattern image.",
-     "params": {"width": "int", "height": "int", "cell": "int", "c1": "array[int]", "c2": "array[int]"},
-     "run": generate_checkerboard},
-    {"name": "generate_noise", "description": "Generate random noise as a pixel array (deterministic with seed).",
-     "params": {"width": "int", "height": "int", "seed": "int"}, "run": generate_noise},
-    {"name": "generate_mandelbrot", "description": "Generate a Mandelbrot set fractal as a pixel array.",
-     "params": {"width": "int", "height": "int", "max_iter": "int"}, "run": generate_mandelbrot},
-    {"name": "image_metadata", "description": "Compute image metadata and estimated file sizes from dimensions and format.",
-     "params": {"width": "int", "height": "int", "format": "string", "channels": "int", "has_alpha": "bool", "color_depth": "int"},
-     "run": image_metadata},
-    {"name": "base64_encode_image", "description": "Base64-encode raw image bytes and return a data URI.",
-     "params": {"data": "bytes"}, "run": base64_encode_image},
-    {"name": "detect_format", "description": "Detect image format from raw bytes magic numbers (PNG, JPEG, GIF, BMP, WEBP).",
-     "params": {"data": "bytes"}, "run": detect_format},
+     "params": {"width": "int", "height": "int", "cells": "int", "color1": "array[int]", "color2": "array[int]"}, "run": generate_checkerboard},
+    {"name": "generate_plasma", "description": "Generate a plasma effect image using sine combinations.",
+     "params": {"width": "int", "height": "int", "scale": "float"}, "run": generate_plasma},
+    {"name": "generate_mandelbrot", "description": "Render the Mandelbrot fractal set.",
+     "params": {"width": "int", "height": "int", "max_iter": "int", "zoom": "float", "cx": "float", "cy": "float"}, "run": generate_mandelbrot},
+    {"name": "adjust_brightness", "description": "Adjust image brightness by a fixed amount.",
+     "params": {"pixels": "array[int]", "width": "int", "height": "int", "amount": "int"}, "run": adjust_brightness},
+    {"name": "adjust_contrast", "description": "Adjust image contrast by a factor.",
+     "params": {"pixels": "array[int]", "width": "int", "height": "int", "factor": "float"}, "run": adjust_contrast},
+    {"name": "adjust_gamma", "description": "Apply gamma correction to an image.",
+     "params": {"pixels": "array[int]", "width": "int", "height": "int", "gamma": "float"}, "run": adjust_gamma},
+    {"name": "grayscale", "description": "Convert image to grayscale (luminance/luma/average).",
+     "params": {"pixels": "array[int]", "width": "int", "height": "int", "method": "string"}, "run": grayscale},
+    {"name": "invert", "description": "Invert image colors (negative).",
+     "params": {"pixels": "array[int]", "width": "int", "height": "int"}, "run": invert},
+    {"name": "sepia", "description": "Apply sepia tone filter.",
+     "params": {"pixels": "array[int]", "width": "int", "height": "int"}, "run": sepia},
+    {"name": "box_blur", "description": "Apply a separable box blur.",
+     "params": {"pixels": "array[int]", "width": "int", "height": "int", "radius": "int"}, "run": box_blur},
+    {"name": "sharpen", "description": "Sharpen image via unsharp masking (3x3 kernel).",
+     "params": {"pixels": "array[int]", "width": "int", "height": "int", "amount": "float"}, "run": sharpen},
+    {"name": "edge_detect", "description": "Sobel edge detection.",
+     "params": {"pixels": "array[int]", "width": "int", "height": "int"}, "run": edge_detect},
+    {"name": "color_balance", "description": "Shift RGB color channels.",
+     "params": {"pixels": "array[int]", "width": "int", "height": "int", "r_shift": "int", "g_shift": "int", "b_shift": "int"}, "run": color_balance},
+    {"name": "threshold", "description": "Apply binary threshold to an image.",
+     "params": {"pixels": "array[int]", "width": "int", "height": "int", "level": "int"}, "run": threshold},
+    {"name": "resize_nearest", "description": "Resize image with nearest-neighbor interpolation.",
+     "params": {"pixels": "array[int]", "width": "int", "height": "int", "new_width": "int", "new_height": "int"}, "run": resize_nearest},
+    {"name": "resize_bilinear", "description": "Resize image with bilinear interpolation.",
+     "params": {"pixels": "array[int]", "width": "int", "height": "int", "new_width": "int", "new_height": "int"}, "run": resize_bilinear},
+    {"name": "rotate_90", "description": "Rotate image 90 degrees (clockwise or counter-clockwise).",
+     "params": {"pixels": "array[int]", "width": "int", "height": "int", "clockwise": "bool"}, "run": rotate_90},
+    {"name": "flip", "description": "Flip image horizontally or vertically.",
+     "params": {"pixels": "array[int]", "width": "int", "height": "int", "axis": "string"}, "run": flip},
+    {"name": "crop", "description": "Crop a region from an image.",
+     "params": {"pixels": "array[int]", "width": "int", "height": "int", "x": "int", "y": "int", "new_width": "int", "new_height": "int"}, "run": crop},
+    {"name": "histogram", "description": "Compute per-channel histogram of an image.",
+     "params": {"pixels": "array[int]", "width": "int", "height": "int"}, "run": histogram},
+    {"name": "average_color", "description": "Compute the average color of an image.",
+     "params": {"pixels": "array[int]", "width": "int", "height": "int"}, "run": average_color},
+    {"name": "dominant_color", "description": "Find the dominant color via coarse quantization.",
+     "params": {"pixels": "array[int]", "width": "int", "height": "int", "buckets": "int"}, "run": dominant_color},
+    {"name": "brightness_stats", "description": "Compute brightness mean, std, min, max.",
+     "params": {"pixels": "array[int]", "width": "int", "height": "int"}, "run": brightness_stats},
+    {"name": "blend", "description": "Alpha-blend two images of the same size.",
+     "params": {"pixels_a": "array[int]", "pixels_b": "array[int]", "width": "int", "height": "int", "alpha": "float"}, "run": blend},
+    {"name": "overlay_text", "description": "Overlay ASCII text using a built-in 5x7 bitmap font.",
+     "params": {"pixels": "array[int]", "width": "int", "height": "int", "x": "int", "y": "int", "text": "string", "color": "array[int]"}, "run": overlay_text},
+    {"name": "encode_ppm", "description": "Encode RGB pixels as a PPM (base64) byte string.",
+     "params": {"pixels": "array[int]", "width": "int", "height": "int"}, "run": encode_ppm},
+    {"name": "decode_ppm", "description": "Decode a base64 PPM image into RGBA pixels.",
+     "params": {"data_b64": "string"}, "run": decode_ppm},
+    {"name": "encode_png", "description": "Encode RGBA pixels as a PNG (base64) byte string using zlib.",
+     "params": {"pixels": "array[int]", "width": "int", "height": "int"}, "run": encode_png},
+    {"name": "pil_available", "description": "Check whether Pillow is installed for advanced image ops.",
+     "params": {}, "run": pil_available},
+    {"name": "pil_apply_filter", "description": "Apply a Pillow filter (BLUR, SHARPEN, EDGE_ENHANCE, EMBOSS, etc.) to an image file.",
+     "params": {"path": "string", "filter_name": "string", "out_path": "string(optional)"}, "run": pil_apply_filter},
+    {"name": "pil_resize", "description": "Resize an image file with Pillow.",
+     "params": {"path": "string", "width": "int", "height": "int", "out_path": "string(optional)"}, "run": pil_resize},
+    {"name": "pil_exif", "description": "Read EXIF metadata from an image file (requires Pillow).",
+     "params": {"path": "string"}, "run": pil_exif},
+    {"name": "pil_convert", "description": "Convert an image file to another format (PNG, JPEG, WEBP, etc.).",
+     "params": {"path": "string", "fmt": "string", "out_path": "string(optional)"}, "run": pil_convert},
+    {"name": "pil_thumbnail", "description": "Create a thumbnail of an image file.",
+     "params": {"path": "string", "size": "int", "out_path": "string(optional)"}, "run": pil_thumbnail},
 ]

@@ -12,7 +12,7 @@ def test_computer_tools_import_and_shapes():
     from eazzu.tools.computer_tools import TOOLS
     names = {t["name"] for t in TOOLS}
     expected = {
-        "screenshot", "list_desktop", "list_directory", "open_file", "run_shell",
+        "desktop_screenshot", "list_desktop", "list_directory", "open_file", "run_shell",
         "run_cmd", "run_powershell", "file_info", "clipboard_read", "clipboard_write",
         "list_processes", "active_window", "dialog_alert",
         "keyboard_type", "mouse_click", "mouse_move",

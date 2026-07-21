@@ -835,12 +835,73 @@ def cmd_self(args) -> int:
     return 0
 
 
+# -------------------------------------------------------------- PLATFORM #
+def cmd_platform(args) -> int:
+    from eazzu.tools import platform_tools as pt
+    action = args.platform_action
+    if action == "detect":
+        _emit(pt.detect_platform())
+    elif action == "info":
+        _emit(pt.system_info())
+    elif action == "battery":
+        _emit(pt.battery())
+    elif action == "wifi":
+        _emit(pt.wifi_info())
+    elif action == "volume":
+        _emit(pt.set_volume(args.percent))
+    elif action == "notify":
+        _emit(pt.notify(args.title or "EAZZU", args.message))
+    elif action == "timer":
+        _emit(pt.timer(args.seconds, args.message))
+    elif action == "hash":
+        _emit(pt.hash_text(args.text, algo=args.algo))
+    elif action == "hashfile":
+        _emit(pt.hash_file(args.path, algo=args.algo))
+    elif action == "b64e":
+        _emit(pt.b64_encode(args.text))
+    elif action == "b64d":
+        _emit(pt.b64_decode(args.text))
+    elif action == "uuid":
+        _emit(pt.make_uuid())
+    elif action == "qr":
+        _emit(pt.qr_code(args.data, args.output))
+    elif action == "now":
+        _emit(pt.now())
+    elif action == "calc":
+        _emit(pt.calc(args.expr))
+    elif action == "say":
+        _emit(pt.say(args.text))
+    elif action == "ip":
+        _emit(pt.ip_external())
+    elif action == "whoami":
+        _emit(pt.whoami())
+    elif action == "launch":
+        _emit(pt.launch_app(args.target))
+    elif action == "colab-mount":
+        _emit(pt.colab_mount())
+    elif action == "ish":
+        _emit(pt.ish_info())
+    else:
+        return 1
+    return 0
+
+
+def cmd_install(args) -> int:
+    """Install optional dependency groups (or pip packages)."""
+    from eazzu.auto_install import run_install
+    if args.list:
+        groups = ["trading","dev","image","pdf","slides","automation","web","audio","yaml","http","server","all"]
+        _emit({"available": groups, "pip": args.packages})
+        return 0
+    return run_install(groups=args.group or [], packages=args.packages or [], yes=args.yes)
+
+
 # ------------------------------------------------------------------ COMPUTER #
 def cmd_computer(args) -> int:
     from eazzu.tools import computer_tools as ct
     action = args.computer_action
     if action == "screenshot":
-        _emit(ct.screenshot(output=args.output or "screenshot.png"))
+        _emit(ct.desktop_screenshot(output=args.output or "screenshot.png"))
         return 0
     if action == "desktop":
         _emit(ct.list_desktop())
@@ -1304,6 +1365,40 @@ def build_parser() -> argparse.ArgumentParser:
     ap_b = ap_sub.add_parser("build", help="create + run + screenshot + package in one step")
     ap_b.add_argument("description"); ap_b.add_argument("--language", default="html")
     ap_p.set_defaults(func=cmd_app)
+
+    # --------------------------------------------------------- install #
+    inst_p = sub.add_parser("install", help="install optional dependency groups (trading/image/pdf/slides/automation/web/audio/full)")
+    inst_p.add_argument("group", nargs="*", help="group names (trading, dev, image, pdf, slides, automation, web, audio, all/full)")
+    inst_p.add_argument("--packages", nargs="*", default=[], help="extra pip packages to install")
+    inst_p.add_argument("--list", action="store_true", help="list available groups and exit")
+    inst_p.add_argument("-y", "--yes", action="store_true", help="skip confirmation")
+    inst_p.set_defaults(func=cmd_install)
+
+    # --------------------------------------------------------- platform #
+    pl_p = sub.add_parser("platform", help="platform utilities: info, battery, wifi, volume, notify, timer, hash, qr, tts, etc.")
+    pl_sub = pl_p.add_subparsers(dest="platform_action", required=True)
+    pl_sub.add_parser("detect")
+    pl_sub.add_parser("info")
+    pl_sub.add_parser("battery")
+    pl_sub.add_parser("wifi")
+    pl_sub.add_parser("whoami")
+    pl_sub.add_parser("ip")
+    pl_sub.add_parser("now")
+    pl_sub.add_parser("uuid")
+    pl_sub.add_parser("colab-mount")
+    pl_sub.add_parser("ish")
+    pl_v = pl_sub.add_parser("volume"); pl_v.add_argument("percent", type=int)
+    pl_n = pl_sub.add_parser("notify"); pl_n.add_argument("message"); pl_n.add_argument("--title", default="EAZZU")
+    pl_t = pl_sub.add_parser("timer"); pl_t.add_argument("seconds", type=int); pl_t.add_argument("--message", default="Timer done!")
+    pl_h = pl_sub.add_parser("hash"); pl_h.add_argument("text"); pl_h.add_argument("--algo", default="sha256")
+    pl_hf = pl_sub.add_parser("hashfile"); pl_hf.add_argument("path"); pl_hf.add_argument("--algo", default="sha256")
+    pl_be = pl_sub.add_parser("b64e"); pl_be.add_argument("text")
+    pl_bd = pl_sub.add_parser("b64d"); pl_bd.add_argument("text")
+    pl_qr = pl_sub.add_parser("qr"); pl_qr.add_argument("data"); pl_qr.add_argument("--output", default="qr.png")
+    pl_c = pl_sub.add_parser("calc"); pl_c.add_argument("expr")
+    pl_s = pl_sub.add_parser("say"); pl_s.add_argument("text")
+    pl_l = pl_sub.add_parser("launch"); pl_l.add_argument("target")
+    pl_p.set_defaults(func=cmd_platform)
 
     # --------------------------------------------------------- NEW: self updater #
     sf_p = sub.add_parser("self", help="self-improvement: clone, test, commit, push, apply changes to running EAZZU")

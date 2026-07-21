@@ -63,6 +63,9 @@ ENV_VAR_MAP = {
     "nvidia_nim": "NVIDIA_API_KEY",
     "cloudflare": "CLOUDFLARE_API_KEY",
     "oci": "OCI_API_KEY",
+    # HuggingFace
+    "huggingface": "HF_TOKEN",
+    "huggingface_endpoint": "HF_TOKEN",
     # Freemodel.dev (serves both OpenAI and Anthropic-compatible routes)
     "freemodel": "FREEMODEL_API_KEY",
     "freemodel_codex": "FREEMODEL_API_KEY",

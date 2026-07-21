@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "eazzu"
-version = "1.7.0"
+version = "1.8.0"
 description = "Unified agentic developer, trading intelligence, productivity and AI toolkit — transparent analysis, signals and adaptive tracking."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -31,10 +31,22 @@ dependencies = [
 [project.optional-dependencies]
 trading  = ["pandas>=2.0", "numpy>=1.24", "websocket-client>=1.7"]
 dev      = ["rich>=13.0"]
-image    = ["pillow>=10.0"]
-pdf      = ["fpdf>=2.7"]
+image    = ["pillow>=10.0", "mss>=9.0"]
+pdf      = ["fpdf2>=2.7"]
 slides   = ["python-pptx>=0.6"]
-full     = ["pandas>=2.0", "numpy>=1.24", "websocket-client>=1.7", "rich>=13.0", "pillow>=10.0", "fpdf>=2.7", "python-pptx>=0.6"]
+automation = ["pyautogui>=0.9"]
+web = ["playwright>=1.0"]
+audio = ["soundfile>=0.12", "numpy>=1.24"]
+yaml = ["pyyaml>=6.0"]
+http = ["httpx>=0.25"]
+server = ["fastapi>=0.110", "uvicorn>=0.27"]
+all      = [
+  "pandas>=2.0", "numpy>=1.24", "websocket-client>=1.7",
+  "rich>=13.0", "pillow>=10.0", "mss>=9.0", "fpdf2>=2.7", "python-pptx>=0.6",
+  "pyautogui>=0.9", "soundfile>=0.12", "pyyaml>=6.0", "httpx>=0.25",
+  "fastapi>=0.110", "uvicorn>=0.27", "colorama>=0.4", "tqdm>=4.0",
+  "qrcode[pil]>=7.0",
+]
 
 [project.scripts]
 eazzu = "eazzu.cli:main"

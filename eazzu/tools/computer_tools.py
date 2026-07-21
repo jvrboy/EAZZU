@@ -43,6 +43,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
+def _soft_try_image():
+    try:
+        from eazzu import autoinstall
+        autoinstall.ensure("image", prompt=False)
+    except Exception:
+        pass
+_soft_try_image()
+
 IS_WIN = sys.platform.startswith("win")
 IS_MAC = sys.platform == "darwin"
 IS_LINUX = sys.platform.startswith("linux")
@@ -89,7 +97,7 @@ def _have_mss() -> bool:
         return False
 
 
-def screenshot(output: str = "screenshot.png") -> dict:
+def desktop_screenshot(output: str = "screenshot.png") -> dict:
     """Capture the primary desktop and save to `output` (relative to fs_root)."""
     out = _safe_path(output)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -457,10 +465,10 @@ def _wrap(fn):
 
 
 TOOLS: list[dict] = [
-    {"name": "screenshot",
-     "description": "Take a screenshot of the primary display and save it as a PNG.",
+    {"name": "desktop_screenshot",
+     "description": "Take a screenshot of the primary display and save it as a PNG (returns path).",
      "params": {"output": {"type": "string", "description": "file path to save PNG", "default": "screenshot.png"}},
-     "run": _wrap(screenshot)},
+     "run": _wrap(desktop_screenshot)},
 
     {"name": "list_desktop",
      "description": "List files and folders on the current user's desktop.",

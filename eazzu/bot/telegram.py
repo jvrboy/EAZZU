@@ -224,10 +224,11 @@ def run_bot(
 ) -> None:
     from eazzu.agent.core import Agent
     from eazzu.tools.computer_tools import (
-        screenshot, list_directory, open_file, run_shell_cmd, file_info,
+        desktop_screenshot, list_directory, open_file, run_shell_cmd, file_info,
         list_desktop, clipboard_read, clipboard_write, list_processes,
         active_window, _desktop_path,
     )
+    screenshot = desktop_screenshot  # alias used below in callbacks
     from eazzu.tools.files import read_text_tool  # may be used later
     from eazzu.providers.router import ProviderRouter
 
@@ -307,7 +308,7 @@ def run_bot(
             reply_text(chat_id, "✅ Conversation reset.")
             return
         if t.startswith("/screenshot") or low in {"screenshot", "screen", "pic", "photo"}:
-            shot = screenshot()
+            shot = desktop_screenshot()
             if shot.get("ok") and Path(shot["path"]).exists():
                 send_photo(token, chat_id, shot["path"], caption=f"screenshot ({shot['method']})")
             else:

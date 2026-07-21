@@ -318,3 +318,35 @@ class FreemodelCodex(OpenAICompatibleProvider):
     name = "freemodel_codex"
     default_base_url = "https://api.freemodel.dev/v1"
     default_model = "gpt-5.5"
+
+
+@register_provider
+class HuggingFace(OpenAICompatibleProvider):
+    """Hugging Face Inference Providers — routes to a model's hosted provider
+    (Together, Fireworks, Groq, Nebius, Novita, HF itself, …) through the HF
+    chat-completions proxy. Set API key to a HuggingFace User Access Token.
+
+      base_url: https://router.huggingface.co     (default)
+      model:    meta-llama/Llama-3.3-70B-Instruct, Qwen/Qwen2.5-Coder-32B-Instruct,
+                deepseek-ai/DeepSeek-V3, mistralai/Mistral-7B-Instruct-v0.3, …
+    """
+    name = "huggingface"
+    default_base_url = "https://router.huggingface.co"
+    default_model = "meta-llama/Llama-3.3-70B-Instruct"
+
+    def _headers(self) -> dict:
+        return {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key or ''}",
+        }
+
+
+@register_provider
+class HuggingFaceEndpoint(OpenAICompatibleProvider):
+    """Dedicated Hugging Face Inference Endpoint (OpenAI-compatible).
+    Pass base_url=https://<your-endpoint>.endpoints.huggingface.cloud/v1/ via
+    config or --base-url; API key is your HF token.
+    """
+    name = "huggingface_endpoint"
+    default_base_url = "https://api-inference.huggingface.co/v1"
+    default_model = "meta-llama/Llama-3.2-3B-Instruct"

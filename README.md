@@ -65,19 +65,76 @@ syntax/lint/wheel-install checks and a fix for an indentation bug in
 
 ## 🚀 Install
 
-```bash
+### Windows (CMD / PowerShell)
+```powershell
+# Install Python 3.9+ from python.org (check "Add Python to PATH"), then:
 git clone https://github.com/jvrboy/EAZZU.git
 cd EAZZU
-pip install -e .            # base install (works on iSH)
-pip install -e '.[full]'    # everything (pandas, rich, ws-client, pillow)
+pip install -e .            # base (works in CMD, PowerShell, Windows Terminal)
+pip install -e .[all]       # install every optional dependency in one go
+eazzu                       # launch the CLI anywhere
+```
+For Telegram bot control: `eazzu keys set telegram_bot <your-bot-token>` then `eazzu telegram`.
+
+### macOS
+```bash
+brew install python3 git
+git clone https://github.com/jvrboy/EAZZU.git && cd EAZZU
+pip3 install -e .
+pip3 install -e .[all]
+eazzu
 ```
 
-### iOS via iSH
+### Linux (Ubuntu / Debian / Fedora / Arch)
+```bash
+sudo apt install python3-pip git python3-tk scrot   # fedora: dnf install ... / arch: pacman -S ...
+git clone https://github.com/jvrboy/EAZZU.git && cd EAZZU
+pip install -e .
+pip install -e .[all]
+eazzu
+```
 
+### iOS via iSH (Alpine Linux on iPhone/iPad)
 ```sh
 apk add python3 py3-pip git
 git clone https://github.com/jvrboy/EAZZU.git && cd EAZZU
-sh ish/bootstrap.sh
+sh ish/bootstrap.sh      # installs minimal deps for iSH
+eazzu                    # launch
+```
+
+### Google Colab
+```python
+!git clone https://github.com/jvrboy/EAZZU.git
+%cd EAZZU
+!pip install -q -e .[all]
+import eazzu
+# Use the agent programmatically:
+from eazzu import Agent
+agent = Agent(provider="auto")
+agent.ask("build me a pomodoro timer app")
+# Or launch the Telegram bot:
+!eazzu telegram &
+# Mount Google Drive for persistent keys/output:
+from eazzu.tools.platform_tools import colab_mount
+colab_mount()
+```
+
+### Any platform: one-shot install of optional groups
+```bash
+eazzu install --list          # see available groups (trading,image,pdf,slides,automation,web,audio,all)
+eazzu install trading image   # install groups
+eazzu install -y all          # install everything non-interactively
+eazzu install --packages rich httpx   # arbitrary pip packages
+```
+Missing dependencies auto-install on first use when you set `EAZZU_AUTOINSTALL=1` (interactive shells); otherwise run `eazzu install <group>`.
+
+### Launch at any time
+Once installed with `pip install -e .`, the `eazzu` command is available globally in any shell:
+```bash
+eazzu              # banner + help
+eazzu chat         # start agentic chat with auto-routing across all keys
+eazzu telegram     # start the Telegram bot (control your computer from your phone)
+eazzu doctor       # environment diagnostics
 ```
 
 ---

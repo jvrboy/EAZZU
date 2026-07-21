@@ -16,7 +16,7 @@ from eazzu.tools import automation_canvas_tools, surveillance_tools, screenshot_
 from eazzu.tools import daw_tools, three_d_tools, ai_coding_tools, local_ai_tools
 from eazzu.tools import crosscut_tools, pipeline_tools, pipeline_extra_tools
 from eazzu.tools import provider_registry_tools, extra_tools
-from eazzu.tools import computer_tools, app_builder_tools, self_updater_tools
+from eazzu.tools import computer_tools, app_builder_tools, self_updater_tools, platform_tools
 
 REGISTRY: list[dict] = [
     *shell.TOOLS,
@@ -25,6 +25,9 @@ REGISTRY: list[dict] = [
     *trade_tools.TOOLS,
     *dev_tools.TOOLS,
     *research_tools.TOOLS,
+    *computer_tools.TOOLS,
+    *app_builder_tools.TOOLS,
+    *self_updater_tools.TOOLS,
     *advanced_tools.TOOLS,
     *agent_tools.TOOLS,
     *alert_dispatcher.TOOLS,
@@ -72,6 +75,7 @@ REGISTRY: list[dict] = [
     *pipeline_extra_tools.TOOLS,
     *provider_registry_tools.TOOLS,
     *extra_tools.TOOLS,
+    *platform_tools.TOOLS,
 ]
 
 __all__ = ["REGISTRY"]

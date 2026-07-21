@@ -29,8 +29,9 @@ from pathlib import Path
 from typing import Optional
 
 from eazzu.tools.computer_tools import (
-    _fs_root, _safe_path, screenshot, run_shell_cmd, dialog_alert,
+    _fs_root, _safe_path, desktop_screenshot, run_shell_cmd, dialog_alert,
 )
+screenshot = desktop_screenshot
 
 
 DEFAULT_WEB_TEMPLATE = """<!doctype html>

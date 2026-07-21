@@ -30,6 +30,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from typing import Optional
 
 from eazzu.cli_ui import banner, panel, table, kv, status_line, rule, C, colorize, set_color
@@ -66,14 +67,43 @@ def cmd_version(_args) -> int:
     return 0
 
 
+def _resolve_agent_args(args):
+    """Resolve provider/model/strategy from args > env > config."""
+    provider = args.provider
+    model = args.model
+    strategy = getattr(args, "router_strategy", None)
+    if provider is None:
+        provider = os.environ.get("EAZZU_PROVIDER")
+    if model is None:
+        model = os.environ.get("EAZZU_MODEL")
+    try:
+        from eazzu.config import get_config
+        cfg = get_config()
+        if provider is None:
+            provider = cfg.get("default_provider") or "auto"
+        if model is None:
+            model = cfg.get("default_model")
+        if strategy is None:
+            strategy = cfg.get("router_strategy", "random")
+    except Exception:
+        if provider is None:
+            provider = "auto"
+    return provider, model, strategy
+
+
 # ---------------------------------------------------------------- CHAT / ASK #
 def cmd_chat(args) -> int:
     from eazzu.agent import Agent
-    agent = Agent(provider=args.provider, model=args.model)
+    provider, model, strategy = _resolve_agent_args(args)
+    agent = Agent(provider=provider, model=model, router_strategy=strategy or "random")
     print(banner())
-    print(f"Provider: {args.provider}  ·  Model: {args.model or '(default)'}")
+    if provider.lower() == "auto" and agent.router:
+        print(f"Router: {strategy} · {agent.router.status()['total_endpoints']} endpoints, "
+              f"{agent.router.status()['healthy']} healthy")
+    else:
+        print(f"Provider: {provider}  ·  Model: {model or '(default)'}")
     print(f"Tools: {len(agent.tools)} registered")
-    print("Type '/exit' to quit · '/reset' to clear · '/tools' to list tools · '/memory' for memory\n")
+    print("Type '/exit' to quit · '/reset' to clear · '/tools' to list tools · '/memory' for memory · '/router' for health\n")
     while True:
         try:
             user = input("you › ").strip()
@@ -96,11 +126,20 @@ def cmd_chat(args) -> int:
             from eazzu.agent.memory import WorkingMemory
             _emit(WorkingMemory().snapshot())
             continue
+        if user == "/router":
+            if agent.router:
+                _emit(agent.router.status())
+            else:
+                print(status_line(f"router not active (fixed provider: {agent.provider})", "info"))
+            continue
         print("bot › ", end="", flush=True)
         turn = agent.ask(user, on_token=lambda c: (sys.stdout.write(c), sys.stdout.flush()))
         if not turn.reply and not turn.tool_calls:
             print("(no response)")
         else:
+            if agent.last_route and agent.last_route.get("attempts", 0) > 1:
+                print(f"\n  {colorize('⤷', C.DIM)} routed via {agent.last_route['endpoint']} "
+                      f"({agent.last_route['attempts']} attempts)", end="")
             print()
         for tc in turn.tool_calls:
             print(f"  {colorize('⤷', C.DIM)} tool `{colorize(tc['name'], C.CYAN)}` args={tc['args']}")
@@ -108,17 +147,37 @@ def cmd_chat(args) -> int:
 
 def cmd_ask(args) -> int:
     from eazzu.agent import Agent
-    agent = Agent(provider=args.provider, model=args.model)
+    provider, model, strategy = _resolve_agent_args(args)
+    agent = Agent(provider=provider, model=model, router_strategy=strategy or "random")
     turn = agent.ask(args.prompt)
-    _emit(turn.reply if not args.json else {"reply": turn.reply, "tool_calls": turn.tool_calls, "latency_ms": turn.latency_ms, "cost_usd": turn.cost_usd})
+    if not args.json:
+        _emit(turn.reply)
+        if agent.last_route:
+            ep = agent.last_route.get("endpoint") or agent.last_route.get("provider")
+            att = agent.last_route.get("attempts", 1)
+            lat = agent.last_route.get("latency_ms", 0) or 0
+            tag = f"[via {ep} · {att} attempt(s) · {lat:.0f}ms]"
+            print(f"\n  {colorize(tag, C.DIM)}", file=sys.stderr)
+        return 0
+    payload = {
+        "reply": turn.reply,
+        "tool_calls": turn.tool_calls,
+        "latency_ms": turn.latency_ms,
+        "cost_usd": turn.cost_usd,
+    }
+    if agent.last_route:
+        payload["route"] = agent.last_route
+    _emit(payload)
     return 0
 
 
 # --------------------------------------------------------------------- LOOP #
 def cmd_loop(args) -> int:
     from eazzu.agent.loop import run_loop
+    provider, model, strategy = _resolve_agent_args(args)
     print(banner())
-    print(f"Starting autonomous loop (max {args.max_iterations} iterations)\n")
+    route_mode = f"router={strategy or 'random'}" if provider.lower() == "auto" else f"provider={provider}"
+    print(f"Starting autonomous loop (max {args.max_iterations} iterations, {route_mode})\n")
     def on_step(step):
         it = step['iteration']
         print(f"\n{rule(f'Iteration {it}')}")
@@ -126,8 +185,16 @@ def cmd_loop(args) -> int:
         if step['tool_calls']:
             for tc in step['tool_calls']:
                 print(f"  {colorize('Tool:', C.YELLOW)} {tc['name']}")
+        route = step.get("route")
+        if route:
+            print(f"  {colorize('Routed via:', C.DIM)} {route.get('endpoint', route.get('provider'))} "
+                  f"({route.get('attempts', 1)} attempt(s))")
         print(f"  {colorize('Elapsed:', C.DIM)} {step['elapsed_s']}s")
-    result = run_loop(args.task, provider=args.provider, model=args.model, max_iterations=args.max_iterations, on_step=on_step)
+    extra_kwargs = {}
+    if provider.lower() == "auto":
+        extra_kwargs["router_strategy"] = strategy or "random"
+    result = run_loop(args.task, provider=provider, model=model,
+                      max_iterations=args.max_iterations, on_step=on_step, **extra_kwargs)
     print(f"\n{rule('Result')}")
     _emit(result)
     return 0 if result["status"] == "complete" else 1
@@ -136,20 +203,73 @@ def cmd_loop(args) -> int:
 # ---------------------------------------------------------------------- KEYS #
 def cmd_keys(args) -> int:
     from eazzu.providers import ConfigManager
+    from eazzu.providers.router import mask_key, _split_keys
     cm = ConfigManager()
     action = args.action
     if action == "set":
+        # set replaces all keys for a provider; for multi-key append use `add`.
         cm.set(args.provider, args.value)
-        print(status_line(f"key stored for '{args.provider}' (encrypted at ~/.eazzu/)", "ok"))
+        n = len(_split_keys(args.value))
+        print(status_line(f"{n} key(s) stored for '{args.provider}' (encrypted at ~/.eazzu/)", "ok"))
+    elif action == "add":
+        n = cm.add_key(args.provider, args.value)
+        print(status_line(f"added key for '{args.provider}' (total {n} keys for this provider)", "ok"))
     elif action == "get":
-        print(cm.get(args.provider) or "(not set)")
+        # Print primary/first key (preserves backward compat).
+        all_keys = cm.list_keys(args.provider)
+        print(all_keys[0] if all_keys else "(not set)")
+    elif action == "show":
+        # Show masked keys for a provider (safe to print).
+        all_keys = cm.list_keys(args.provider)
+        if not all_keys:
+            print(f"(no keys for '{args.provider}')")
+            return 0
+        for i, k in enumerate(all_keys, 1):
+            src = "env" if _is_env_key(cm, args.provider, k) else "file"
+            print(f"  {i:2d}. {mask_key(k)}  ({src})")
+        print(f"\n{len(all_keys)} key(s) total for '{args.provider}'")
+    elif action == "remove":
+        target = args.value if hasattr(args, "value") and args.value else args.index
+        remaining = cm.remove_key(args.provider, target)
+        print(status_line(f"removed key; {len(remaining)} remain for '{args.provider}'", "ok"))
     elif action == "delete":
         cm.delete(args.provider)
-        print(status_line(f"deleted '{args.provider}'", "ok"))
+        print(status_line(f"deleted all keys for '{args.provider}'", "ok"))
     elif action == "list":
-        keys = cm.list_stored()
-        print("\n".join(keys) if keys else "(no keys stored)")
+        providers = cm.list_stored()
+        if not providers:
+            print("(no keys stored)")
+            return 0
+        from eazzu.cli_ui import table
+        rows = []
+        for p in providers:
+            n = len(cm.list_keys(p))
+            rows.append([p, str(n), mask_key((cm.list_keys(p) or [""])[0])])
+        # Merge in env-only providers not in file.
+        import os as _os
+        from eazzu.providers.core.config import ENV_VAR_MAP
+        seen = set(providers)
+        for p, env in ENV_VAR_MAP.items():
+            if p in seen:
+                continue
+            if _os.environ.get(env):
+                ks = _split_keys(_os.environ[env])
+                if ks:
+                    rows.append([p, str(len(ks)), mask_key(ks[0]) + " (env)"])
+        print(table(["Provider", "Keys", "First key"], rows))
     return 0
+
+
+def _is_env_key(cm, provider: str, key: str) -> bool:
+    """Check if `key` comes from an environment variable (vs encrypted keystore)."""
+    import os as _os
+    from eazzu.providers.core.config import ENV_VAR_MAP
+    from eazzu.providers.router import _split_keys
+    for env_name in (ENV_VAR_MAP.get(provider.lower()), f"{provider.upper()}_API_KEY"):
+        if env_name and _os.environ.get(env_name):
+            if key in _split_keys(_os.environ[env_name]):
+                return True
+    return False
 
 
 # ----------------------------------------------------------------- PROVIDERS #
@@ -546,8 +666,10 @@ def cmd_telegram(args) -> int:
         me = get_me(token)
         _emit(me)
         return 0
+    provider, model, strategy = _resolve_agent_args(args)
     allowed = args.allowed_users.split(",") if args.allowed_users else None
-    run_bot(token, provider=args.provider, model=args.model, allowed_users=allowed)
+    run_bot(token, provider=provider, model=model, allowed_users=allowed,
+            router_strategy=strategy or "random")
     return 0
 
 
@@ -673,6 +795,78 @@ def cmd_update(args) -> int:
     return update(full=args.full, yes=args.yes)
 
 
+# ------------------------------------------------------------------- ROUTER #
+def cmd_router(args) -> int:
+    import json as _json
+    from eazzu.providers.router import ProviderRouter, mask_key
+    from eazzu.cli_ui import table, C
+    from eazzu.config import get_config
+
+    # Pick strategy: CLI flag > config > default
+    cfg = get_config()
+    strategy = getattr(args, "strategy", None) or cfg.get("router_strategy", "random")
+    router = ProviderRouter(strategy=strategy)
+
+    if args.router_action == "refresh":
+        added = router.refresh()
+        print(status_line(f"refreshed endpoints ({added:+d})", "ok"))
+        return 0
+    if args.router_action == "reset":
+        router.reset_health()
+        print(status_line("health state reset for all endpoints", "ok"))
+        return 0
+    if args.router_action == "status":
+        st = router.status()
+        if args.json:
+            _emit(st)
+            return 0
+        print(f"Router strategy: {colorize(st['strategy'], C.BOLD)}   "
+              f"healthy: {colorize(str(st['healthy']), C.GREEN)}/{st['total_endpoints']}")
+        rows = []
+        for e in st["endpoints"]:
+            mark = colorize("✓", C.GREEN) if e["ready"] else colorize(f"⏳{e['cooldown_remaining_s']}s", C.YELLOW)
+            rows.append([
+                mark,
+                e["label"],
+                e["key"],
+                e["model"] or "",
+                f"{e['successes']}/{e['successes']+e['failures']}",
+                f"{e['avg_latency_ms']:.0f}ms",
+                (e["last_error"][:50] + "…") if e["last_error"] else "",
+            ])
+        print(table(["", "Endpoint", "Key", "Model", "ok/tot", "lat", "last err"], rows))
+        return 0
+    if args.router_action == "test":
+        # Send a tiny 'ping' to every configured endpoint and report.
+        prompt = "Reply with exactly the word PONG and nothing else."
+        results = []
+        for ep in router.endpoints:
+            entry = {"endpoint": ep.name, "provider": ep.provider, "ok": False, "latency_ms": 0, "reply": "", "error": ""}
+            t0 = time.time()
+            try:
+                inst = router.connector.get_provider(ep.provider, api_key=ep.api_key)
+                resp = inst.chat([{"role": "user", "content": prompt}], model=ep.model, timeout=30)
+                entry["ok"] = "PONG" in resp.content.upper()
+                entry["reply"] = resp.content[:60]
+            except Exception as e:
+                entry["error"] = f"{type(e).__name__}: {str(e)[:120]}"
+            entry["latency_ms"] = round((time.time() - t0) * 1000)
+            results.append(entry)
+        if args.json:
+            _emit(results)
+            return 0
+        rows = []
+        for r in results:
+            mark = colorize("✓", C.GREEN) if r["ok"] else colorize("✗", C.RED)
+            detail = r["reply"] if r["ok"] else r["error"]
+            rows.append([mark, r["endpoint"], f"{r['latency_ms']}ms", (detail[:70] + "…") if len(detail) > 70 else detail])
+        print(table(["", "Endpoint", "lat", "result"], rows))
+        ok = sum(1 for r in results if r["ok"])
+        print(f"\n{ok}/{len(results)} endpoints alive")
+        return 0 if ok > 0 else 1
+    return 1
+
+
 # ----------------------------------------------------------------- COMMANDS #
 def _iter_command_help(parser: argparse.ArgumentParser, prefix: str = "eazzu") -> list[tuple[str, str]]:
     """Walk subparsers to produce (command_path, help) pairs."""
@@ -725,24 +919,60 @@ def build_parser() -> argparse.ArgumentParser:
                    help="install shell completion (default: detect shell)")
     sub = p.add_subparsers(dest="cmd")
 
+    def _default_provider() -> str:
+        # env > config > "auto"
+        if os.environ.get("EAZZU_PROVIDER"):
+            return os.environ["EAZZU_PROVIDER"]
+        try:
+            from eazzu.config import get_config
+            return get_config().get("default_provider") or "auto"
+        except Exception:
+            return "auto"
+
+    def _default_model() -> Optional[str]:
+        if os.environ.get("EAZZU_MODEL"):
+            return os.environ["EAZZU_MODEL"]
+        try:
+            from eazzu.config import get_config
+            return get_config().get("default_model")
+        except Exception:
+            return None
+
     for name, fn, help_txt in (("chat", cmd_chat, "interactive agentic chat"), ("ask", cmd_ask, "one-shot agent query")):
         sp = sub.add_parser(name, help=help_txt)
-        sp.add_argument("--provider", default=os.environ.get("EAZZU_PROVIDER", "openai"))
-        sp.add_argument("--model", default=os.environ.get("EAZZU_MODEL"))
+        sp.add_argument("--provider", default=None,
+                        help="AI provider (default: auto = rotate across all configured keys)")
+        sp.add_argument("--model", default=None)
+        sp.add_argument("--router-strategy", choices=("random", "healthiest", "fastest", "cheapest"),
+                        default=None, help="routing strategy when provider=auto")
         if name == "ask":
             sp.add_argument("prompt"); sp.add_argument("--json", action="store_true")
         sp.set_defaults(func=fn)
 
     lp = sub.add_parser("loop", help="autonomous agentic loop — works until task complete")
-    lp.add_argument("task"); lp.add_argument("--provider", default="openai"); lp.add_argument("--model")
+    lp.add_argument("task")
+    lp.add_argument("--provider", default=None,
+                    help="AI provider (default: auto = rotate across all configured keys)")
+    lp.add_argument("--model", default=None)
+    lp.add_argument("--router-strategy", choices=("random", "healthiest", "fastest", "cheapest"), default=None)
     lp.add_argument("--max-iterations", type=int, default=20)
     lp.set_defaults(func=cmd_loop)
 
-    kp = sub.add_parser("keys", help="manage provider API keys (encrypted)")
+    kp = sub.add_parser("keys", help="manage provider API keys (encrypted, multi-key supported)")
     ksub = kp.add_subparsers(dest="action", required=True)
-    for act, extra in (("set", ["provider", "value"]), ("get", ["provider"]), ("delete", ["provider"]), ("list", [])):
-        s = ksub.add_parser(act)
-        for a in extra: s.add_argument(a)
+    ks_set = ksub.add_parser("set", help="replace all keys for a provider")
+    ks_set.add_argument("provider"); ks_set.add_argument("value")
+    ks_add = ksub.add_parser("add", help="append a key to a provider (rotator picks randomly)")
+    ks_add.add_argument("provider"); ks_add.add_argument("value")
+    ks_get = ksub.add_parser("get", help="print the active (first) key for a provider")
+    ks_get.add_argument("provider")
+    ks_show = ksub.add_parser("show", help="list masked keys for a provider (safe for logs)")
+    ks_show.add_argument("provider")
+    ks_rm = ksub.add_parser("remove", help="remove a key by value or 1-based index")
+    ks_rm.add_argument("provider"); ks_rm.add_argument("value", nargs="?", help="key substring or 1-based index")
+    ks_del = ksub.add_parser("delete", help="delete ALL keys for a provider")
+    ks_del.add_argument("provider")
+    ksub.add_parser("list", help="list providers with stored keys (with counts)")
     kp.set_defaults(func=cmd_keys)
 
     pp = sub.add_parser("providers", help="list registered providers")
@@ -887,7 +1117,9 @@ def build_parser() -> argparse.ArgumentParser:
     mem_p.set_defaults(func=cmd_memory)
 
     tg_p = sub.add_parser("telegram", help="run the EAZZU Telegram bot")
-    tg_p.add_argument("--provider", default="openai"); tg_p.add_argument("--model")
+    tg_p.add_argument("--provider", default=None, help="AI provider (default: auto)")
+    tg_p.add_argument("--model", default=None)
+    tg_p.add_argument("--router-strategy", choices=("random", "healthiest", "fastest", "cheapest"), default=None)
     tg_p.add_argument("--allowed-users", help="comma-separated Telegram user IDs")
     tg_p.add_argument("--check", action="store_true", help="verify bot token and exit")
     tg_p.set_defaults(func=cmd_telegram)
@@ -934,6 +1166,20 @@ def build_parser() -> argparse.ArgumentParser:
     up_p.add_argument("--full", action="store_true", help="reinstall with [full] extras")
     up_p.add_argument("--yes", "-y", action="store_true", help="skip confirmation prompt")
     up_p.set_defaults(func=cmd_update)
+
+    # --------------------------------------------------------- NEW: router #
+    rt_p = sub.add_parser("router", help="multi-provider rotation status / health / tests")
+    rt_sub = rt_p.add_subparsers(dest="router_action", required=True)
+    rt_sub.add_parser("status", help="show endpoint health / cooldowns / stats")
+    rt_sub.add_parser("refresh", help="re-scan keys/env to discover new endpoints")
+    rt_sub.add_parser("reset", help="clear health state / cooldowns for all endpoints")
+    rt_test = rt_sub.add_parser("test", help="send a tiny PONG ping to every configured endpoint")
+    rt_test.add_argument("--json", action="store_true")
+    rt_st = rt_sub.choices["status"]
+    rt_st.add_argument("--json", action="store_true")
+    rt_st.add_argument("--strategy", choices=("random", "healthiest", "fastest", "cheapest"),
+                       help="override routing strategy for this invocation")
+    rt_p.set_defaults(func=cmd_router)
 
     # --------------------------------------------------------- NEW: commands #
     cmd_p = sub.add_parser("commands", help="list every eazzu subcommand with a one-line description")

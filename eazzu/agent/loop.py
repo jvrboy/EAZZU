@@ -38,14 +38,15 @@ _BLOCKED = "<<<TASK_BLOCKED>>>"
 def run_loop(
     task: str,
     *,
-    provider: str = "openai",
+    provider: str = "auto",
     model: Optional[str] = None,
     max_iterations: int = 20,
     memory_path: Optional[str] = None,
     on_step: Optional[callable] = None,
+    router_strategy: str = "random",
 ) -> dict:
     """Run the autonomous agentic loop until the task is complete or max iterations."""
-    agent = Agent(provider=provider, model=model)
+    agent = Agent(provider=provider, model=model, router_strategy=router_strategy)
     memory = WorkingMemory(path=memory_path)
     task_record = memory.add_task(task)
     task_id = task_record["id"]
@@ -69,8 +70,11 @@ def run_loop(
             "reply": reply[:2000],
             "tool_calls": turn.tool_calls,
             "latency_ms": turn.latency_ms,
+            "elapsed_s": time.time() - step_start,
             "elapsed": time.time() - step_start,
         }
+        if getattr(agent, "last_route", None):
+            step_result["route"] = dict(agent.last_route)
         steps.append(step_result)
         if on_step:
             on_step(step_result)

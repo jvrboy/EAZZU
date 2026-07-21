@@ -22,13 +22,14 @@ from typing import Any
 
 
 DEFAULTS: dict[str, Any] = {
-    "default_provider": "openai",
+    "default_provider": "auto",
     "default_model": None,
     "color": "auto",
     "shell_policy": "allowlist",
     "fs_root": None,
     "web_port": 8787,
     "editor": None,
+    "router_strategy": "random",   # random | healthiest | fastest | cheapest
 }
 
 _VALIDATORS = {

@@ -85,15 +85,78 @@ sh ish/bootstrap.sh
 ## 🔑 Bring your own keys
 
 ```bash
-eazzu keys set openai      sk-...
-eazzu keys set anthropic   sk-ant-...
-eazzu keys set groq        gsk_...
-eazzu keys set deepseek    sk-...
-eazzu keys set telegram_bot  123456:ABC-...   # for Telegram bot
-eazzu keys list
+eazzu keys add gemini       AIza...          # append a key (supports many per provider)
+eazzu keys add gemini       AIza...          # add as many as you want — 15, 50, …
+eazzu keys add openrouter   sk-or-...
+eazzu keys add cerebras     cjk-...
+eazzu keys add nvidia_nim   nvapi-...
+eazzu keys add groq         gsk_...
+eazzu keys add deepseek     sk-...
+eazzu keys add openai       sk-...           # any LLM provider works; all are rotated
+eazzu keys add telegram_bot 123456:ABC-...   # for Telegram bot
+eazzu keys list             # show providers + key counts
+eazzu keys show gemini      # show masked keys (safe to paste in logs)
+eazzu keys remove gemini 1  # remove the 1st key for gemini (1-indexed)
 ```
 
-Keys are encrypted with **Fernet** and stored under `~/.eazzu/keys.enc`.
+You can also set keys via comma-or-newline-separated environment variables
+(e.g. `GEMINI_API_KEY=k1,k2,k3`) or by editing `~/.eazzu/keys.enc` — the
+router automatically picks up every key it finds. Keys are encrypted at rest
+with **Fernet**.
+
+### 🔀 Multi-provider auto-routing (v1.6.0)
+
+By **default** (`EAZZU_PROVIDER=auto`, the new default), EAZZU does **not**
+pin to a single provider. Instead, a `ProviderRouter` discovers every LLM
+provider that has at least one API key configured and treats each
+`(provider, key)` pair as an independent endpoint.
+
+Behavior you asked for:
+
+* You say *"hi"* → the router picks a random healthy endpoint and responds.
+  Gemini key #7, OpenRouter key #3, Cerebras key #12, NVIDIA NIM key #4 —
+  whatever is healthy.
+* If a key is **out of tokens / rate-limited / suspended / billing-exhausted
+  / down**, the router instantly fails over to the next key on the next
+  provider. It keeps switching until one works — **you do not need to
+  retry**.
+* Mid-task (during an autonomous `eazzu loop` run, a chat turn with tool
+  calls, the Telegram bot, …) if a key burns out **mid-stream** the same
+  transparent failover happens: the LLM call is re-issued to another
+  endpoint and the task continues.
+* Per-endpoint health is tracked in-process: strikes, cooldowns (honoring
+  `Retry-After`), average latency, success rate. State persists to
+  `~/.eazzu/router_stats.json` between sessions.
+* Bad-request / invalid-argument errors (HTTP 400 from the LLM itself, not
+  the key) do **not** trigger failover — those are prompt bugs, not
+  provider/key problems.
+
+Choose a routing strategy with `--router-strategy` (or `eazzu config set
+router_strategy <name>`):
+
+| Strategy     | Behavior                                                    |
+| ------------ | ----------------------------------------------------------- |
+| `random`     | Uniform pick over healthy endpoints (default, fastest spin-up) |
+| `healthiest` | Weight by success rate (prefer the keys that "just work")   |
+| `fastest`    | Weight by inverse average latency                           |
+| `cheapest`   | Prefer providers with the lowest known per-token pricing    |
+
+You can still pin a single provider the old way: `eazzu chat --provider
+openai`, or `eazzu config set default_provider openai`.
+
+Inspect and manage the router at the CLI:
+
+```bash
+eazzu router status              # table: endpoint, key (masked), model, ok/tot, latency, last error
+eazzu router status --json       # machine-readable
+eazzu router status --strategy cheapest
+eazzu router test                # send a tiny PONG ping to every configured endpoint
+eazzu router test --json         # per-endpoint latency/ok/error
+eazzu router refresh             # re-scan env/keystore after adding keys
+eazzu router reset               # clear all health state / cooldowns
+```
+
+Inside chat you can also type `/router` to see the live health table.
 
 ---
 

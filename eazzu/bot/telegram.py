@@ -92,7 +92,13 @@ def send_document(token: str, chat_id: str, file_path: str) -> dict:
         return {"ok": False, "error": f"HTTP {exc.code}"}
 
 
-def run_bot(token: str, provider: str = "openai", model: Optional[str] = None, allowed_users: Optional[list[str]] = None) -> None:
+def run_bot(
+    token: str,
+    provider: str = "auto",
+    model: Optional[str] = None,
+    allowed_users: Optional[list[str]] = None,
+    router_strategy: str = "random",
+) -> None:
     """Run the Telegram bot with long polling. Blocks until interrupted.
 
     Parameters
@@ -100,12 +106,17 @@ def run_bot(token: str, provider: str = "openai", model: Optional[str] = None, a
     token:
         Telegram bot token from BotFather.
     provider / model:
-        LLM provider and model for the agent.
+        LLM provider and model for the agent. Default provider is ``"auto"``
+        which uses :class:`ProviderRouter` to rotate across all configured keys.
+    router_strategy:
+        When ``provider="auto"``, selects the rotation strategy
+        (random/healthiest/fastest/cheapest).
     allowed_users:
         Optional list of Telegram user IDs allowed to use the bot. If None,
         anyone who can message the bot can use it.
     """
     from eazzu.agent.core import Agent
+    from eazzu.providers.router import ProviderRouter
 
     me = get_me(token)
     if not me.get("ok"):
@@ -161,7 +172,9 @@ def run_bot(token: str, provider: str = "openai", model: Optional[str] = None, a
                     continue
 
                 if chat_id not in user_contexts:
-                    user_contexts[chat_id] = Agent(provider=provider, model=model)
+                    user_contexts[chat_id] = Agent(
+                        provider=provider, model=model, router_strategy=router_strategy,
+                    )
                 user_agent = user_contexts[chat_id]
 
                 _tg_request(token, "sendChatAction", {"chat_id": chat_id, "action": "typing"})

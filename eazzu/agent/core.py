@@ -95,16 +95,35 @@ class Agent:
 
     def __init__(
         self,
-        provider: str = "openai",
+        provider: str = "auto",
         model: Optional[str] = None,
         connector: Optional[Connector] = None,
         tools: Optional[Iterable[dict]] = None,
         system_prompt: Optional[str] = None,
         max_steps: int = 6,
+        router_strategy: str = "random",
     ) -> None:
-        self.provider = provider
+        self.provider = provider  # "auto" -> use ProviderRouter
         self.model = model
         self.connector = connector or Connector()
+        self.router = None
+        if str(provider).lower() == "auto":
+            from eazzu.providers.router import ProviderRouter  # noqa: WPS433
+            self.router = ProviderRouter(
+                connector=self.connector,
+                config=getattr(self.connector, "config", None),
+                strategy=router_strategy,
+            )
+            if not self.router.endpoints:
+                import sys
+                print(
+                    "[eazzu] router found no configured LLM keys — "
+                    "set keys via `eazzu keys add <provider> <key>` or env vars; "
+                    "falling back to single-provider mode.",
+                    file=sys.stderr,
+                )
+                self.provider = "openai"
+                self.router = None
         # Deferred tool import prevents circular imports at package load time.
         if tools is None:
             from eazzu.tools import REGISTRY  # noqa: WPS433
@@ -117,6 +136,7 @@ class Agent:
         ]
         self.system_prompt = system_prompt or _default_system_prompt(catalog)
         self.history: list[AgentMessage] = [AgentMessage("system", self.system_prompt)]
+        self.last_route: Optional[dict] = None  # populated after each LLM call
 
     # ------------------------------------------------------------------ #
     # Public API
@@ -185,6 +205,39 @@ class Agent:
     # ------------------------------------------------------------------ #
     def _call_llm(self, on_token: Optional[Callable[[str], None]]) -> tuple[str, float]:
         messages = [m.to_dict() for m in self.history]
+
+        # ---- Auto router path: transparent multi-provider failover ----
+        if self.router is not None:
+            def _on_failover(err: dict):
+                # Non-fatal notice in streaming/callbacks when a key burns mid-turn.
+                note = f"\n[failover: {err.get('endpoint')} → next provider ({err.get('error', '')[:60]})]\n"
+                if on_token:
+                    try:
+                        on_token(note)
+                    except Exception:
+                        pass
+
+            if on_token:
+                try:
+                    buf: list[str] = []
+                    for chunk in self.router.stream(messages, model=self.model, on_failover=_on_failover):
+                        buf.append(chunk)
+                        on_token(chunk)
+                    return "".join(buf), 0.0
+                except Exception as e:
+                    # Streaming failed across all endpoints — try blocking chat as last resort.
+                    pass
+            res = self.router.chat(messages, model=self.model, on_failover=_on_failover)
+            self.last_route = {
+                "provider": res.provider,
+                "endpoint": res.endpoint_label,
+                "attempts": res.attempts,
+                "errors": len(res.errors),
+                "latency_ms": getattr(res.response, "latency_ms", 0),
+            }
+            return res.response.content, float(getattr(res.response, "cost_usd", 0.0) or 0.0)
+
+        # ---- Single-provider legacy path ----
         if on_token:
             buf = []
             try:

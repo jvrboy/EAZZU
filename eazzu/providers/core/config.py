@@ -189,9 +189,73 @@ class ConfigManager:
         return self._cache.get(provider.lower())
 
     def set(self, provider: str, api_key: str) -> None:
+        """Set the key(s) for a provider. Accepts a single key or a list
+        (comma/newline separated, or a JSON list string)."""
         self.load()
+        # Keep as-is (caller decides if this replaces or not via add_key).
         self._cache[provider.lower()] = api_key
         self.save()
+
+    def add_key(self, provider: str, api_key: str) -> int:
+        """Append a key for a provider, returning the new total key count.
+
+        If no key exists yet, this is equivalent to ``set``. If one or more
+        keys already exist, the new key is appended (deduplicated)."""
+        from eazzu.providers.router import _split_keys  # local import avoids cycle at import time
+        self.load()
+        prov = provider.lower()
+        existing = _split_keys(self._cache.get(prov, ""))
+        api_key = (api_key or "").strip().strip("\"'")
+        if not api_key:
+            return len(existing)
+        if api_key in existing:
+            return len(existing)
+        existing.append(api_key)
+        self._cache[prov] = ",".join(existing)
+        self.save()
+        return len(existing)
+
+    def remove_key(self, provider: str, api_key_or_index) -> list[str]:
+        """Remove a key (by value or 1-based index). Returns the remaining keys."""
+        from eazzu.providers.router import _split_keys
+        self.load()
+        prov = provider.lower()
+        existing = _split_keys(self._cache.get(prov, ""))
+        if not existing:
+            return []
+        try:
+            idx = int(api_key_or_index) - 1
+            if 0 <= idx < len(existing):
+                existing.pop(idx)
+        except (TypeError, ValueError):
+            val = (api_key_or_index or "").strip().strip("\"'")
+            existing = [k for k in existing if k != val]
+        if existing:
+            self._cache[prov] = ",".join(existing)
+        else:
+            self._cache.pop(prov, None)
+        self.save()
+        return existing
+
+    def list_keys(self, provider: str) -> list[str]:
+        """Return all keys stored for a provider (from env + encrypted)."""
+        from eazzu.providers.router import _split_keys
+        keys: list[str] = []
+        env_name = ENV_VAR_MAP.get(provider.lower())
+        for candidate_env in (env_name, f"{provider.upper()}_API_KEY"):
+            if candidate_env and os.environ.get(candidate_env):
+                keys.extend(_split_keys(os.environ[candidate_env]))
+        self.load()
+        v = self._cache.get(provider.lower())
+        if v:
+            keys.extend(_split_keys(v))
+        seen = set()
+        out = []
+        for k in keys:
+            if k and k not in seen:
+                seen.add(k)
+                out.append(k)
+        return out
 
     def delete(self, provider: str) -> None:
         self.load()

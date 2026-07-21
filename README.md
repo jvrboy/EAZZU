@@ -160,6 +160,123 @@ Inside chat you can also type `/router` to see the live health table.
 
 ---
 
+## 💻 Full computer control via CLI & Telegram (v1.7.0)
+
+Every platform (Windows / macOS / Linux) is controllable through the agent and
+a new `eazzu computer` CLI — and, crucially, through Telegram.
+
+```bash
+eazzu computer screenshot -o desktop.png     # take a screenshot (Pillow/mss/screencapture)
+eazzu computer desktop                      # list desktop files with icons (📁/📄)
+eazzu computer ls ~/Documents              # arbitrary directory listing
+eazzu computer info file.txt                # size, dates, permissions
+eazzu computer open resume.pdf              # OS default opener (start/xdg-open/open)
+eazzu computer shell   "ipconfig"           # bash/sh (POSIX) or auto
+eazzu computer cmd     "dir C:\\Users"      # Windows cmd.exe /c
+eazzu computer powershell "Get-Process"     # Windows PowerShell (pwsh on POSIX)
+eazzu computer processes                    # running processes (tasklist / ps)
+eazzu computer window                       # title of foreground window
+eazzu computer clipboard                    # read clipboard
+eazzu computer clipboard --write "hi"       # write clipboard
+eazzu computer alert "Done!"                # popup dialog (MessageBox/osascript/zenity)
+eazzu computer ... keyboard_type/mouse_click/mouse_move  # HID via pyautogui if installed
+```
+
+All of these are registered as tools the agent can call autonomously, so
+human-language requests like *"take a screenshot of my desktop, list every
+file, and show me the active window"* work out of the box — and they work
+**from Telegram**.
+
+---
+
+## 🤖 Telegram bot — full remote computer control
+
+```bash
+eazzu telegram                  # start the long-polling bot
+eazzu telegram --check          # verify token and exit
+eazzu telegram --allowed-users 12345,67890
+```
+
+Send `/menu` to get an inline-keyboard control panel with:
+
+| Button          | What it does                                              |
+| --------------- | --------------------------------------------------------- |
+| 💬 Chat         | Natural-language agentic chat with full tool access       |
+| 🖥️ Desktop      | Lists desktop files + shows active window                 |
+| 📸 Screenshot   | Snap a screenshot and send it back as a photo             |
+| 📁 Files        | Browse any directory with inline folders/files, tap to open |
+| 💻 Shell        | Run cmd/PowerShell/bash (`/shell <cmd>`)                  |
+| 📊 Status       | EAZZU version, platform, Python, provider info            |
+| 🔀 Router       | Multi-provider routing health (keys alive/failed/cooled)  |
+| 🛠️ Tools        | Lists the available computer-control tools                |
+
+Keep-alive pings: while the agent is thinking the bot edits a "⏳ working…"
+message every 2.5s so you see it's still alive. Screenshots come back as
+photos, packaged apps come back as downloadable documents.
+
+You can also talk to it in plain English: *"screenshot my desktop and list
+every file on it"*, *"run `ipconfig`"*, *"what's on my clipboard?"* — it
+dispatches the right tools and replies with the result.
+
+---
+
+## 🧱 Production-ready app builder (v1.7.0)
+
+```bash
+eazzu app create "pomodoro timer" --language html     # scaffold a real HTML/CSS/JS app
+eazzu app create "discord bot"   --language python    # python package w/ main.py
+eazzu app build  "landing page"  --language html     # create → run → screenshot → zip
+eazzu app run    <dir>             # auto-detect start cmd, supports --background/--port
+eazzu app fix    <dir> "<error>"   # append to FIX_LOG.txt for iterative fixing
+eazzu app package <dir> --fmt zip  # bundle the project
+```
+
+The agent can iteratively write/fix/run/rerun until the app starts cleanly
+(`create_app`/`run_app`/`fix_app`/`package_app`/`build_app` are all registered
+as agent tools). When screenshots succeed (Playwright/Selenium installed;
+otherwise a desktop screenshot is taken), they're surfaced to Telegram and
+to the CLI.
+
+---
+
+## 🧬 Self-improving agent (v1.7.0)
+
+Ask the agent to improve itself and it can safely clone its own repo into
+a sandbox, make changes, run the full test suite (`pytest` + `compileall` +
+`ruff`), commit, push to `main`, and copy the changes back into the live
+install — gated behind explicit `self_*` tools so nothing happens without
+your say-so:
+
+```bash
+eazzu self status                  # where am I installed? is it a git clone?
+eazzu self clone                   # clone repo into ~/.eazzu/clones/eazzu-<ts>/
+eazzu self test  <clone-dir>       # pytest -q + compileall + ruff E9/F
+eazzu self install <clone-dir>     # pip install -e for smoke import
+eazzu self commit <clone-dir> -m "..."
+eazzu self push   <clone-dir>      # merges feature branch into main and pushes
+eazzu self apply  <clone-dir>      # copy changed files back into live install
+```
+
+The agent also has all these as tools, so *"add a feature that does X,
+test it, and push it"* is a single prompt.
+
+---
+
+## 🔌 freemodel.dev provider (v1.7.0)
+
+Two new providers registered: `freemodel` (OpenAI-compatible, defaults to
+`gpt-5.5` at `https://api.freemodel.dev/v1`) and `freemodel_codex`. Both
+use the `FREEMODEL_API_KEY` env var / keystore entry, and are fully
+compatible with the multi-key router:
+
+```bash
+eazzu keys add freemodel  fmk_...
+eazzu keys add freemodel  fmk_...
+eazzu router test           # PONG-ping every key, see which are alive
+```
+
+---
+
 ## 🛠️ CLI quality-of-life (v1.5.1)
 
 ```bash

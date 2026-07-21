@@ -16,6 +16,7 @@ from eazzu.tools import automation_canvas_tools, surveillance_tools, screenshot_
 from eazzu.tools import daw_tools, three_d_tools, ai_coding_tools, local_ai_tools
 from eazzu.tools import crosscut_tools, pipeline_tools, pipeline_extra_tools
 from eazzu.tools import provider_registry_tools, extra_tools
+from eazzu.tools import computer_tools, app_builder_tools, self_updater_tools
 
 REGISTRY: list[dict] = [
     *shell.TOOLS,

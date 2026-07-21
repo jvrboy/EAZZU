@@ -269,12 +269,6 @@ class Writer(OpenAICompatibleProvider):
 
 @register_provider
 class AzureOpenAI(OpenAICompatibleProvider):
-    """
-    Azure OpenAI. Requires:
-      base_url=https://<resource>.openai.azure.com
-      extra_config: {"deployment": "...", "api_version": "2024-06-01"}
-    """
-    name = "azure_openai"
     default_base_url = ""
     default_model = "gpt-4o"
 
@@ -303,3 +297,24 @@ class AzureOpenAI(OpenAICompatibleProvider):
             total_tokens=usage.get("total_tokens", p + c),
             cost_usd=self._estimate_cost(p, c), raw=data,
         )
+
+
+@register_provider
+class FreemodelOpenAI(OpenAICompatibleProvider):
+    """freemodel.dev in OpenAI-compatible mode — serves GPT-5.5, o3, gpt-4o, etc.
+    Use with a freemodel.dev API key. Base URL: https://api.freemodel.dev/v1
+    """
+    name = "freemodel"
+    default_base_url = "https://api.freemodel.dev/v1"
+    default_model = "gpt-5.5"
+
+
+@register_provider
+class FreemodelCodex(OpenAICompatibleProvider):
+    """freemodel.dev OpenAI-Responses endpoint for Codex CLI compatibility
+    (model_provider = 'freemodel' with wire_api = 'responses' in the Codex config).
+    For chat we still use /chat/completions.
+    """
+    name = "freemodel_codex"
+    default_base_url = "https://api.freemodel.dev/v1"
+    default_model = "gpt-5.5"

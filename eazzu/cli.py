@@ -789,7 +789,100 @@ def cmd_config(args) -> int:
     return 1
 
 
-# ------------------------------------------------------------------- UPDATE #
+# --------------------------------------------------------------------- APP #
+def cmd_app(args) -> int:
+    from eazzu.tools import app_builder_tools as ab
+    action = args.app_action
+    if action == "create":
+        _emit(ab.create_app(args.description, language=args.language,
+                            out_dir=args.out_dir, title=args.title))
+    elif action == "run":
+        _emit(ab.run_app(args.directory, command=args.command, timeout=args.timeout,
+                         background=args.background, port=args.port))
+    elif action == "fix":
+        _emit(ab.fix_app(args.directory, args.error_log))
+    elif action == "screenshot":
+        _emit(ab.screenshot_app(url=args.url, output=args.output, wait_ms=args.wait_ms))
+    elif action == "package":
+        _emit(ab.package_app(args.directory, fmt=args.fmt))
+    elif action == "build":
+        _emit(ab.build_app(args.description, language=args.language))
+    else:
+        return 1
+    return 0
+
+
+# -------------------------------------------------------------------- SELF #
+def cmd_self(args) -> int:
+    from eazzu.tools import self_updater_tools as su
+    action = args.self_action
+    if action == "status":
+        _emit(su.status_self())
+    elif action == "clone":
+        _emit(su.clone_self(dest=args.dest, branch=args.branch))
+    elif action == "test":
+        _emit(su.test_self(args.directory, args=args.args))
+    elif action == "install":
+        _emit(su.install_self(args.directory))
+    elif action == "commit":
+        _emit(su.commit_self(args.directory, args.message))
+    elif action == "push":
+        _emit(su.push_self(args.directory, branch=args.branch, to_main=args.to_main))
+    elif action == "apply":
+        _emit(su.apply_to_live(args.directory, restart_cmd=args.restart_cmd))
+    else:
+        return 1
+    return 0
+
+
+# ------------------------------------------------------------------ COMPUTER #
+def cmd_computer(args) -> int:
+    from eazzu.tools import computer_tools as ct
+    action = args.computer_action
+    if action == "screenshot":
+        _emit(ct.screenshot(output=args.output or "screenshot.png"))
+        return 0
+    if action == "desktop":
+        _emit(ct.list_desktop())
+        return 0
+    if action == "ls":
+        _emit(ct.list_directory(args.path or "."))
+        return 0
+    if action == "info":
+        _emit(ct.file_info(args.path))
+        return 0
+    if action == "open":
+        _emit(ct.open_file(args.path))
+        return 0
+    if action == "shell":
+        _emit(ct.run_shell_cmd(args.command, shell=args.shell or "auto",
+                               timeout=args.timeout, cwd=args.cwd))
+        return 0
+    if action == "cmd":
+        _emit(ct.run_cmd(args.command, timeout=args.timeout, cwd=args.cwd))
+        return 0
+    if action == "powershell":
+        _emit(ct.run_powershell(args.command, timeout=args.timeout, cwd=args.cwd))
+        return 0
+    if action == "processes":
+        _emit(ct.list_processes())
+        return 0
+    if action == "window":
+        _emit(ct.active_window())
+        return 0
+    if action == "clipboard":
+        if args.write:
+            _emit(ct.clipboard_write(args.write))
+        else:
+            _emit(ct.clipboard_read())
+        return 0
+    if action == "alert":
+        _emit(ct.dialog_alert(args.title or "EAZZU", args.message))
+        return 0
+    return 1
+
+
+# -------------------------------------------------------------------- UPDATE #
 def cmd_update(args) -> int:
     from eazzu.updater import update
     return update(full=args.full, yes=args.yes)
@@ -1166,6 +1259,69 @@ def build_parser() -> argparse.ArgumentParser:
     up_p.add_argument("--full", action="store_true", help="reinstall with [full] extras")
     up_p.add_argument("--yes", "-y", action="store_true", help="skip confirmation prompt")
     up_p.set_defaults(func=cmd_update)
+
+    # --------------------------------------------------------- NEW: computer #
+    cu_p = sub.add_parser("computer", help="computer-control: screenshot, desktop, files, shell/cmd/powershell, clipboard")
+    cu_sub = cu_p.add_subparsers(dest="computer_action", required=True)
+    cu_ss = cu_sub.add_parser("screenshot", help="capture the primary screen to PNG")
+    cu_ss.add_argument("--output", "-o", default="screenshot.png")
+    cu_sub.add_parser("desktop", help="list files on the desktop")
+    cu_ls = cu_sub.add_parser("ls", help="list a directory")
+    cu_ls.add_argument("path", nargs="?", default=".")
+    cu_inf = cu_sub.add_parser("info", help="file/directory metadata")
+    cu_inf.add_argument("path")
+    cu_op = cu_sub.add_parser("open", help="open a file with OS default handler")
+    cu_op.add_argument("path")
+    cu_sh = cu_sub.add_parser("shell", help="run a shell command")
+    cu_sh.add_argument("command"); cu_sh.add_argument("--shell", default="auto"); cu_sh.add_argument("--timeout", type=int, default=30); cu_sh.add_argument("--cwd")
+    cu_cmd = cu_sub.add_parser("cmd", help="run a Windows cmd.exe command")
+    cu_cmd.add_argument("command"); cu_cmd.add_argument("--timeout", type=int, default=30); cu_cmd.add_argument("--cwd")
+    cu_ps = cu_sub.add_parser("powershell", help="run PowerShell (pwsh on non-Windows)")
+    cu_ps.add_argument("command"); cu_ps.add_argument("--timeout", type=int, default=30); cu_ps.add_argument("--cwd")
+    cu_sub.add_parser("processes", help="list running processes")
+    cu_sub.add_parser("window", help="title of the active/foreground window")
+    cu_cb = cu_sub.add_parser("clipboard", help="read (default) or --write text to clipboard")
+    cu_cb.add_argument("--write", help="write text to clipboard")
+    cu_al = cu_sub.add_parser("alert", help="show a desktop popup dialog")
+    cu_al.add_argument("message"); cu_al.add_argument("--title", default="EAZZU")
+    cu_p.set_defaults(func=cmd_computer)
+
+    # --------------------------------------------------------- NEW: app builder #
+    ap_p = sub.add_parser("app", help="create, run, screenshot, and package production-ready apps")
+    ap_sub = ap_p.add_subparsers(dest="app_action", required=True)
+    ap_c = ap_sub.add_parser("create", help="scaffold a new app")
+    ap_c.add_argument("description"); ap_c.add_argument("--language", default="html", choices=["html", "python", "node"])
+    ap_c.add_argument("--out-dir"); ap_c.add_argument("--title")
+    ap_r = ap_sub.add_parser("run", help="run the scaffolded app")
+    ap_r.add_argument("directory"); ap_r.add_argument("--command"); ap_r.add_argument("--timeout", type=int, default=30)
+    ap_r.add_argument("--background", action="store_true"); ap_r.add_argument("--port", type=int, default=0)
+    ap_f = ap_sub.add_parser("fix", help="append error log to FIX_LOG.txt for fix iteration")
+    ap_f.add_argument("directory"); ap_f.add_argument("error_log")
+    ap_s = ap_sub.add_parser("screenshot", help="capture a running app")
+    ap_s.add_argument("--url", default="http://localhost:8765"); ap_s.add_argument("--output"); ap_s.add_argument("--wait-ms", type=int, default=1500)
+    ap_pk = ap_sub.add_parser("package", help="bundle the app (zip/tar.gz)")
+    ap_pk.add_argument("directory"); ap_pk.add_argument("--fmt", default="zip")
+    ap_b = ap_sub.add_parser("build", help="create + run + screenshot + package in one step")
+    ap_b.add_argument("description"); ap_b.add_argument("--language", default="html")
+    ap_p.set_defaults(func=cmd_app)
+
+    # --------------------------------------------------------- NEW: self updater #
+    sf_p = sub.add_parser("self", help="self-improvement: clone, test, commit, push, apply changes to running EAZZU")
+    sf_sub = sf_p.add_subparsers(dest="self_action", required=True)
+    sf_sub.add_parser("status", help="show running install info")
+    sf_c = sf_sub.add_parser("clone", help="clone the repo to a sandbox dir")
+    sf_c.add_argument("--dest"); sf_c.add_argument("--branch", default="self-improve")
+    sf_t = sf_sub.add_parser("test", help="run pytest + compileall + ruff inside a clone")
+    sf_t.add_argument("directory"); sf_t.add_argument("--args", default="-q")
+    sf_i = sf_sub.add_parser("install", help="pip install -e a clone")
+    sf_i.add_argument("directory")
+    sf_cm = sf_sub.add_parser("commit", help="commit all changes in a clone")
+    sf_cm.add_argument("directory"); sf_cm.add_argument("message")
+    sf_pu = sf_sub.add_parser("push", help="push a clone to origin/main")
+    sf_pu.add_argument("directory"); sf_pu.add_argument("--branch"); sf_pu.add_argument("--to-main", action="store_true", default=True)
+    sf_a = sf_sub.add_parser("apply", help="copy changes back into the live install")
+    sf_a.add_argument("directory"); sf_a.add_argument("--restart-cmd")
+    sf_p.set_defaults(func=cmd_self)
 
     # --------------------------------------------------------- NEW: router #
     rt_p = sub.add_parser("router", help="multi-provider rotation status / health / tests")

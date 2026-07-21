@@ -18,10 +18,27 @@ from typing import Optional, Any
 
 # ---- ANSI support detection ---- #
 _FORCE_COLOR = os.environ.get("EAZZU_FORCE_COLOR", "")
-if _FORCE_COLOR:
+_NO_COLOR = os.environ.get("EAZZU_NO_COLOR", "") or os.environ.get("NO_COLOR", "")
+if _NO_COLOR:
+    _ANSI = False
+elif _FORCE_COLOR:
     _ANSI = _FORCE_COLOR == "1"
 else:
-    _ANSI = sys.stdout.isatty() and shutil.which("tput") is not None or sys.stdout.isatty()
+    _ANSI = sys.stdout.isatty() and (shutil.which("tput") is not None or sys.stdout.isatty())
+
+
+def set_color(enabled: bool | None) -> None:
+    """Programmatic override (True=on, False=off, None=auto). Used by --no-color / config."""
+    global _ANSI
+    if enabled is None:
+        if _NO_COLOR:
+            _ANSI = False
+        elif _FORCE_COLOR:
+            _ANSI = _FORCE_COLOR == "1"
+        else:
+            _ANSI = sys.stdout.isatty() and (shutil.which("tput") is not None or sys.stdout.isatty())
+        return
+    _ANSI = bool(enabled)
 
 
 # ---- Color codes ---- #

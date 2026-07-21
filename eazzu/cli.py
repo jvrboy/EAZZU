@@ -32,7 +32,7 @@ import os
 import sys
 from typing import Optional
 
-from eazzu.cli_ui import banner, panel, table, kv, status_line, rule, C, colorize
+from eazzu.cli_ui import banner, panel, table, kv, status_line, rule, C, colorize, set_color
 
 
 def _emit(obj) -> None:
@@ -40,6 +40,30 @@ def _emit(obj) -> None:
         print(json.dumps(obj, indent=2, default=str))
     else:
         print(obj)
+
+
+def _apply_globals(args) -> None:
+    """Apply global flags (--no-color, config defaults, etc.) before dispatching."""
+    # Color: explicit CLI flag beats env beats config.
+    if getattr(args, "no_color", False):
+        set_color(False)
+    else:
+        from eazzu.config import get_config
+        cfg = get_config()
+        mode = cfg.get("color", "auto")
+        if mode == "never":
+            set_color(False)
+        elif mode == "always":
+            set_color(True)
+        else:
+            set_color(None)
+
+
+# -------------------------------------------------------------------- VERSION #
+def cmd_version(_args) -> int:
+    from eazzu import __version__
+    print(f"eazzu {__version__}")
+    return 0
 
 
 # ---------------------------------------------------------------- CHAT / ASK #
@@ -571,10 +595,134 @@ def cmd_analyze(args) -> int:
     return 0
 
 
+# ------------------------------------------------------------------- DOCTOR #
+def cmd_doctor(args) -> int:
+    from eazzu.doctor import run_doctor, print_report
+    report = run_doctor(fix=getattr(args, "fix", False))
+    if getattr(args, "json", False):
+        _emit(report)
+        return 0 if report["status"] == "ok" else 1
+    print_report(report)
+    return 0 if report["status"] in ("ok", "warn") else 2
+
+
+# -------------------------------------------------------------------- TOOLS #
+def cmd_tools(args) -> int:
+    from eazzu import tools_discovery as td
+    action = args.tools_action
+    if action == "list":
+        return td.cmd_list(query=args.query, group=args.group, as_json=args.json)
+    if action == "count":
+        return td.cmd_count()
+    if action == "info":
+        return td.cmd_info(args.name)
+    if action == "groups":
+        return td.cmd_groups()
+    return 1
+
+
+# ------------------------------------------------------------------- CONFIG #
+def cmd_config(args) -> int:
+    from eazzu.config import get_config, parse_value, DEFAULTS
+    cfg = get_config()
+    action = args.config_action
+    if action == "show":
+        _emit(cfg.all())
+        return 0
+    if action == "list":
+        rows = [
+            [k, repr(cfg.get(k)), repr(DEFAULTS[k])] for k in sorted(DEFAULTS)
+        ]
+        print(table(["Key", "Value", "Default"], rows))
+        print(f"\nfile: {cfg.path}")
+        return 0
+    if action == "path":
+        print(cfg.path)
+        return 0
+    if action == "get":
+        print(cfg.get(args.key))
+        return 0
+    if action == "set":
+        try:
+            cfg.set(args.key, parse_value(args.value))
+        except (KeyError, ValueError) as e:
+            print(status_line(str(e), "error"))
+            return 2
+        cfg.save()
+        print(status_line(f"{args.key} = {cfg.get(args.key)!r}", "ok"))
+        return 0
+    if action == "unset":
+        if args.key not in DEFAULTS:
+            print(status_line(f"unknown key {args.key!r}", "error"))
+            return 2
+        cfg.set(args.key, DEFAULTS[args.key])
+        cfg.save()
+        print(status_line(f"{args.key} reset to {DEFAULTS[args.key]!r}", "ok"))
+        return 0
+    if action == "reset":
+        cfg.reset()
+        cfg.save()
+        print(status_line(f"config reset to defaults at {cfg.path}", "ok"))
+        return 0
+    return 1
+
+
+# ------------------------------------------------------------------- UPDATE #
+def cmd_update(args) -> int:
+    from eazzu.updater import update
+    return update(full=args.full, yes=args.yes)
+
+
+# ----------------------------------------------------------------- COMMANDS #
+def _iter_command_help(parser: argparse.ArgumentParser, prefix: str = "eazzu") -> list[tuple[str, str]]:
+    """Walk subparsers to produce (command_path, help) pairs."""
+    from argparse import _SubParsersAction
+    out: list[tuple[str, str]] = []
+    for action in parser._actions:
+        if isinstance(action, _SubParsersAction):
+            for name, sub in action.choices.items():
+                path = f"{prefix} {name}".strip()
+                # argparse stores per-choice help in _choices_actions, not on the subparser itself
+                first = ""
+                for choice_action in action._choices_actions:
+                    if choice_action.dest == name or choice_action.metavar == name:
+                        first = choice_action.help or ""
+                        break
+                if not first:
+                    first = (sub.description or "").splitlines()[0] if sub.description else ""
+                out.append((path, first))
+                out.extend(_iter_command_help(sub, path))
+    return out
+
+
+def cmd_commands(args) -> int:
+    parser = build_parser()
+    cmds = _iter_command_help(parser)
+    if getattr(args, "json", False):
+        _emit([{"command": c, "description": d} for c, d in cmds])
+        return 0
+    rows = [[c, d] for c, d in cmds]
+    print(table(["Command", "Description"], rows))
+    print(f"\n{len(cmds)} commands total.")
+    return 0
+
+
 # --------------------------------------------------------------------- PARSE #
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser("eazzu", description="Unified agentic developer + trading + AI + MCP toolkit")
-    p.add_argument("--version", action="store_true", help="print version and exit")
+    p = argparse.ArgumentParser(
+        "eazzu",
+        description="Unified agentic developer + trading + AI + MCP toolkit",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="Run `eazzu <command> --help` for details on each command.",
+    )
+    p.add_argument("--version", "-V", action="store_true", help="print version and exit")
+    p.add_argument("--no-color", action="store_true", help="disable ANSI colors (overrides env/config)")
+    # Hidden flags used by the shell-completion machinery.
+    p.add_argument("--_complete", action="store_true", help=argparse.SUPPRESS)
+    p.add_argument("--_completion-script", choices=("bash", "zsh", "fish"), help=argparse.SUPPRESS)
+    p.add_argument("--install-completion", nargs="?", const="auto",
+                   choices=("bash", "zsh", "fish", "auto"),
+                   help="install shell completion (default: detect shell)")
     sub = p.add_subparsers(dest="cmd")
 
     for name, fn, help_txt in (("chat", cmd_chat, "interactive agentic chat"), ("ask", cmd_ask, "one-shot agent query")):
@@ -751,21 +899,94 @@ def build_parser() -> argparse.ArgumentParser:
     an_p.add_argument("--method", default="classic", help="pivot method: classic, camarilla, woodie")
     an_p.set_defaults(func=cmd_analyze)
 
+    # --------------------------------------------------------- NEW: doctor #
+    dr_p = sub.add_parser("doctor", help="environment diagnostics (Python, deps, keys, network)")
+    dr_p.add_argument("--fix", action="store_true", help="attempt to auto-fix fixable issues (e.g. create config dir)")
+    dr_p.add_argument("--json", action="store_true", help="emit JSON report instead of ANSI table")
+    dr_p.set_defaults(func=cmd_doctor)
+
+    # --------------------------------------------------------- NEW: tools #
+    tl_p = sub.add_parser("tools", help="discover / search tools in the registry")
+    tl_sub = tl_p.add_subparsers(dest="tools_action", required=True)
+    tl_l = tl_sub.add_parser("list", help="list tools (filter with --query/--group)")
+    tl_l.add_argument("--query", "-q", help="substring to match against name/description")
+    tl_l.add_argument("--group", "-g", help="glob against group name (e.g. 'trade*')")
+    tl_l.add_argument("--json", action="store_true")
+    tl_sub.add_parser("count", help="print tool count by group")
+    tl_sub.add_parser("groups", help="list tool groups and counts")
+    tl_i = tl_sub.add_parser("info", help="show details for one tool"); tl_i.add_argument("name")
+    tl_p.set_defaults(func=cmd_tools)
+
+    # --------------------------------------------------------- NEW: config #
+    cf_p = sub.add_parser("config", help="view/edit persistent CLI settings (~/.eazzu/config.json)")
+    cf_sub = cf_p.add_subparsers(dest="config_action", required=True)
+    cf_sub.add_parser("show", help="print current settings as JSON")
+    cf_ls = cf_sub.add_parser("list", help="print settings as a key-value table")
+    cf_get = cf_sub.add_parser("get", help="print a single setting"); cf_get.add_argument("key")
+    cf_set = cf_sub.add_parser("set", help="set a setting"); cf_set.add_argument("key"); cf_set.add_argument("value")
+    cf_del = cf_sub.add_parser("unset", help="reset a key to its default"); cf_del.add_argument("key")
+    cf_sub.add_parser("reset", help="reset all settings to defaults")
+    cf_path = cf_sub.add_parser("path", help="print path to config file")
+    cf_p.set_defaults(func=cmd_config)
+
+    # --------------------------------------------------------- NEW: update #
+    up_p = sub.add_parser("update", help="pull latest from git and pip reinstall (if installed from a clone)")
+    up_p.add_argument("--full", action="store_true", help="reinstall with [full] extras")
+    up_p.add_argument("--yes", "-y", action="store_true", help="skip confirmation prompt")
+    up_p.set_defaults(func=cmd_update)
+
+    # --------------------------------------------------------- NEW: commands #
+    cmd_p = sub.add_parser("commands", help="list every eazzu subcommand with a one-line description")
+    cmd_p.add_argument("--json", action="store_true")
+    cmd_p.set_defaults(func=cmd_commands)
+
+    # --------------------------------------------------------- NEW: version (alias) #
+    ver_p = sub.add_parser("version", help="print installed version")
+    ver_p.set_defaults(func=cmd_version)
+
     return p
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+
+    # Early-handle --version/-V anywhere in the argv (works before/after subcommands).
+    if any(a in ("--version", "-V") for a in argv):
+        return cmd_version(argparse.Namespace())
+
     parser = build_parser()
     args = parser.parse_args(argv)
-    if args.version:
-        from eazzu import __version__
-        print(f"eazzu {__version__}")
-        return 0
+
+    # ---- Internal / global flags that bypass normal dispatch -------------
+    if args._complete:
+        from eazzu.completion import do_complete
+        return do_complete()
+    if args._completion_script:
+        from eazzu.completion import print_script
+        return print_script(args._completion_script)
+    if args.install_completion:
+        from eazzu.completion import install
+        shell = None if args.install_completion == "auto" else args.install_completion
+        return install(shell)
+
+    _apply_globals(args)
+
     if not getattr(args, "cmd", None):
         print(banner())
         parser.print_help()
         return 0
-    return args.func(args)
+    try:
+        return args.func(args)
+    except KeyboardInterrupt:
+        print()
+        return 130
+    except Exception as exc:  # pragma: no cover - defensive top-level
+        import traceback
+        if os.environ.get("EAZZU_DEBUG"):
+            traceback.print_exc()
+        else:
+            print(status_line(f"{type(exc).__name__}: {exc} (set EAZZU_DEBUG=1 for traceback)", "error"))
+        return 1
 
 
 if __name__ == "__main__":

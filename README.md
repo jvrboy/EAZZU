@@ -31,6 +31,18 @@ app-generation pipeline system + 13 additional domain pipelines, 55+ AI
 provider registry with unlimited multi-key support, and 31 utility tools —
 **400+ tools total**, all pure-Python and iSH-friendly.
 
+**v1.5.1 — Quality-of-life update** adds the CLI polish a toolkit this size
+deserves: a new `doctor` diagnostics command, tool-registry discovery
+(`tools list|count|info|groups`), a persistent `config` command for defaults
+(provider, model, color mode, web port, editor, shell policy), an `update`
+helper that git-pulls and reinstalls in-place, a `commands` listing with
+one-liner descriptions, bash/zsh/fish shell completion (one command
+install), a `-V` short flag and `--no-color` (with `NO_COLOR` /
+`EAZZU_NO_COLOR` env support), friendlier top-level error handling
+(`EAZZU_DEBUG=1` for tracebacks), plus CI expanded to Python 3.13 with
+syntax/lint/wheel-install checks and a fix for an indentation bug in
+`eazzu.audio.engine`.
+
 ---
 
 ## ✨ What's inside
@@ -82,6 +94,41 @@ eazzu keys list
 ```
 
 Keys are encrypted with **Fernet** and stored under `~/.eazzu/keys.enc`.
+
+---
+
+## 🛠️ CLI quality-of-life (v1.5.1)
+
+```bash
+eazzu doctor                       # environment diagnostics — Python, deps, keys, disk, network
+eazzu doctor --fix                 # auto-fix fixable issues (e.g. create ~/.eazzu)
+eazzu doctor --json                # machine-readable report
+
+eazzu commands                     # list every subcommand with a one-line description
+eazzu tools count                  # tool-count breakdown by group (400+ tools across ~50 groups)
+eazzu tools list -q "trade"        # search tools by name/description substring
+eazzu tools info ip_info           # show description/params/example for a single tool
+eazzu tools groups                 # list tool groups with counts
+
+eazzu config list                  # show persistent settings + defaults
+eazzu config set default_provider groq
+eazzu config set color never       # 'auto' | 'always' | 'never'
+eazzu config set web_port 9000
+eazzu config get web_port
+eazzu config reset                 # reset ~/.eazzu/config.json to defaults
+
+eazzu update                       # git pull --ff-only + pip install -e .
+eazzu update --full -y             # reinstall with [full] extras, skip confirmation
+
+eazzu --install-completion         # install bash/zsh/fish tab-completion (auto-detects shell)
+eval "$(eazzu --_completion-script bash)"   # load completion in current shell only
+
+eazzu -V                           # short version flag (also works after subcommands, e.g. `eazzu chat -V`)
+eazzu --no-color ...               # disable ANSI colors (also honors $NO_COLOR / $EAZZU_NO_COLOR)
+EAZZU_DEBUG=1 eazzu chat           # print full tracebacks if something throws
+```
+
+The config file lives at `~/.eazzu/config.json` (override with `$EAZZU_CONFIG`).
 
 ---
 

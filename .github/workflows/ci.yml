@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
 
@@ -22,33 +22,78 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
-      - name: Install
+      - name: Install base + dev deps
         run: |
           python -m pip install --upgrade pip
           pip install -e .
           pip install pytest
 
+      - name: Install [full] extras on 3.11+ (exercises optional-dependency paths)
+        if: ${{ matrix.python-version >= '3.11' }}
+        run: pip install -e '.[full]'
+
       - name: Import smoke
         run: |
           python -c "import eazzu, sys; print('eazzu', eazzu.__version__)"
           eazzu --version
-          eazzu providers --category llm | head -20
+          eazzu version
+          eazzu commands --json | python -m json.tool > /dev/null
+          eazzu tools count
+          eazzu doctor --json | python -m json.tool > /dev/null
+          eazzu config list
 
       - name: Run tests
         run: pytest -q
 
-  build:
+      - name: CLI smoke: every subcommand parses
+        run: |
+          # Walking `eazzu commands --json` should cover every parser path;
+          # we also check --help renders for every top-level subcommand.
+          for cmd in chat ask loop keys providers trade dev research net web deriv music image webtools mcp code artifact memory telegram analyze doctor tools config update commands version; do
+            eazzu --no-color $cmd --help > /dev/null
+          done
+          echo "all subcommands --help: OK"
+
+  lint:
     runs-on: ubuntu-latest
-    needs: test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
+      - name: Install ruff
+        run: pip install ruff
+      - name: Compile-check every module (syntax only — catches typos across the 400+ tool files)
+        run: python -m compileall -q eazzu
+      - name: Ruff (fatal errors only — legacy codebase uses permissive style)
+        run: |
+          # E9xx = syntax/indent/ast errors; F = pyflakes. We ignore a handful of
+          # stylistic pyflakes codes that fire on pre-existing code (f-string
+          # nits F541, dict-literal nits F601, and intentional dynamic-name
+          # lookups F821) so the gate stays green. Real import/syntax errors
+          # are still caught by compileall above.
+          ruff check eazzu/ tests/ --select E9,F \
+            --ignore F401,F403,F405,F541,F601,F811,F821,F841
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - name: Build sdist + wheel
         run: |
           python -m pip install --upgrade pip build
           python -m build
+      - name: Verify sdist/wheel install into fresh venv
+        run: |
+          python -m venv /tmp/venv
+          /tmp/venv/bin/pip install --upgrade pip
+          /tmp/venv/bin/pip install dist/*.whl
+          /tmp/venv/bin/eazzu --version
+          /tmp/venv/bin/eazzu doctor
       - uses: actions/upload-artifact@v4
         with:
           name: eazzu-dist

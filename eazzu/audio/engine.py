@@ -132,9 +132,13 @@ class AudioEngine:
     def render_note(self, freq, duration, params=None):
         if params is None: params = DEFAULT_SYNTH
         return _apply_adsr(_generate_waveform(params.waveform, freq, duration, self.sample_rate), params, self.sample_rate)
-    def set_effects(self, effects): self.effects = effects; self.wet_gain = effects.reverb
-        self.delay_wet = effects.delay; self.delay_time = effects.delay_time
-        self.delay_feedback = effects.delay_feedback; self.filter_freq = effects.filter_freq
+    def set_effects(self, effects):
+        self.effects = effects
+        self.wet_gain = effects.reverb
+        self.delay_wet = effects.delay
+        self.delay_time = effects.delay_time
+        self.delay_feedback = effects.delay_feedback
+        self.filter_freq = effects.filter_freq
         self.distortion_amount = effects.distortion
     def set_master_volume(self, vol): self.master_volume = max(0.0, min(2.0, vol))
     def get_state(self):
